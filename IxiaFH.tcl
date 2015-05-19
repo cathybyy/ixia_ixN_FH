@@ -1090,7 +1090,7 @@ namespace eval IxiaFH {
 			    if {[llength $rxportlist] == 1} {
 				  set rxportlist [ lindex $rxportlist 0 ]
 				  if { $trafficinfo== {} } {
-				
+				    puts "trafficinfo is empty"
 				    Flow $tname $portn 
 					$tname config -rcv_ports $rxportlist 
 					set thandle [$tname cget -hTraffic]
@@ -1098,11 +1098,10 @@ namespace eval IxiaFH {
 					lappend trafficinfo [list $thandle $portn $rxportlist ]
 					lappend flownamelist $tname
 					lappend flowlist $fhandle 
-					traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
-						 -dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-					traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
-						 -dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+					traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 				  } else {
+				   
 				    set thandle ""
 				    foreach tinfo $trafficinfo {
 					Deputs $tinfo
@@ -1113,7 +1112,7 @@ namespace eval IxiaFH {
 						}
 					}
 					if { $thandle == "" } {
-				
+				       puts "trafficinfo is not matched"
 					   Flow $tname $portn 
 					   $tname config -rcv_ports $rxportlist
 					   set thandle [$tname cget -hTraffic]
@@ -1121,21 +1120,21 @@ namespace eval IxiaFH {
 					   lappend trafficinfo [list $thandle $portn $rxportlist ] 
 					   lappend flownamelist $tname
 					   lappend flowlist $fhandle 
-					    traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
-							-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-						traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
-							-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+					    traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 
+						#-srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+						traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1
+					    #-srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
 					} else {
-				
+				       puts "trafficinfo get thandle :$thandle"
 					   Flow $tname $portn "NULL" $thandle 
-					   # $tname config -rcv_ports $rxportlist
+					   $tname config -rcv_ports $rxportlist
 					   set fhandle [$tname cget -handle]
+					   puts "fhandle:$fhandle"
 					   lappend flownamelist $tname
 					   lappend flowlist $fhandle
-					   	traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
-							-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-						traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
-							-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+					   puts $name
+						traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+						traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 				  }
 				
@@ -1153,10 +1152,8 @@ namespace eval IxiaFH {
 					lappend flownamelist [ixNet getA $fhandle -name]
 					Deputs "fname: $flownamelist"
 					lappend flowlist $fhandle
-					traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
-						 -dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-					traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
-						 -dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+					traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 		   
 				}
@@ -1164,10 +1161,8 @@ namespace eval IxiaFH {
 			    Traffic $tname $portn 
 				lappend trafficnamelist $tname
                 lappend trafficlist [$tname cget -handle]
-				traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
-					-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-				traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
-					-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+				traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+				traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 			}		
 			 			
 		    after 15000 
@@ -1695,6 +1690,7 @@ namespace eval IxiaFH {
 						#${streamobj}tcpH${headindex} ChangeType MOD
 						set tname [::IxiaFH::nstype $streamobj] 
 						set highLevelStream [ $tname cget -handle ]
+						puts "highLevelStream:$highLevelStream"
 						foreach pro [ ixNet getList $highLevelStream stack ] {
 		Deputs "pro:$pro"
 							if { [ regexp -nocase IPv4 $pro ] } {
@@ -1839,6 +1835,7 @@ namespace eval IxiaFH {
 						set dstmac_mask $value
 					}
 					-srcip {
+						puts "123456"
 						set srcip $value
 						set srcip_count 1
 						set srcip_type incr
