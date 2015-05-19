@@ -436,10 +436,12 @@ Deputs "----- TAG: $tag -----"
 	} else {
 
 		set root    [ixNet getRoot]
-		set handle  [ixNet add $root/traffic trafficItem]
-
+		set handle  [ixNet add $root/traffic trafficItem]		
+        set highLevelStream ""
 		regexp {\d+} $handle id
 		ixNet setA $handle -name $this
+		ixNet commit 
+		set handle [ ixNet remapIds $handle ]
 Deputs "traffic item handle:$handle"
 
 	}
@@ -467,6 +469,7 @@ Deputs "reborn traffic...."
 		set handle  [ixNet add $root/traffic trafficItem]
 	
 		regexp {\d+} $handle id
+		set handle [ ixNet remapIds $handle ]
 		ixNet setA $handle -name $this
 		set port $portObj
 Deputs "port:$port"
@@ -481,16 +484,11 @@ Deputs "hport:$hPort"
         set hTraffic $handle
        
 	}
-#
+
 
 # enable l1Rate use 4 bytes signature and disable data integrity check
 	set root [ixNet getRoot]
-	ixNet setA $root/traffic/statistics/l1Rates -enabled True
-	ixNet setA $root/traffic \
-			-enableDataIntegrityCheck False \
-			-enableMinFrameSize True
-	ixNet commit
-#
+
 
 # get default port Mac and IP address
 	set default_mac [ lindex [ $portObj cget -intf_mac ] 0 ]
@@ -506,7 +504,7 @@ Deputs "default interface:$default_int"
 		}
 		if { $default_mac == "::ixNet::OK" } {
 Deputs "get mac error"		
-			set default_mac "00:00:01:01:01:01"
+			set default_mac "00:00:00:00:00:01"
 		}
 	}
 Deputs "default mac:$default_mac"
@@ -523,9 +521,9 @@ Deputs "default ip:$default_ip"
     set ELoadUnit	[ list KBPS MBPS BPS FPS PERCENT ]
     set ELatencyType [list lifo lilo filo fifo]
 	
-    set load_unit 		KBPS
-    set stream_load 	10000
-    set frame_len		256
+    #set load_unit 		KBPS
+    #set stream_load 	10000
+    set frame_len		128
     set enable_sig		1
 	
 	set flag_modify_adv	0
@@ -632,7 +630,7 @@ Deputs "pdu:$pdu"
 			 }
 		  }
 		  -payload -
-			-fill_content {
+		  -fill_content {
 				set payload $value
 		  }
 		  -enable_sig -
@@ -717,10 +715,53 @@ Deputs "pdu:$pdu"
 	   } else {
 		  error "$errNumber(1) key:location value:$location (Format incorrect. Chas/Card/Port)"
 	   }
-    }    
+    } 
+	#add rcv_ports
+    if { [ info exists rcv_ports ] } {
+	    ixNet setMultiA $handle -trafficItemType l2L3 -trafficType raw
+		ixNet commit
+		
+		Deputs "handle $handle"
+		set endpointSet [ ixNet add $handle endpointSet ]
+		foreach dest $rcv_ports {
+			lappend hDestPorts [ $dest cget -handle ]/protocols
+		}
+		Deputs "hDestPorts: $hDestPorts"
+			
+		ixNet setA $endpointSet -sources "$hPort/protocols"
+		ixNet setA $endpointSet -destinations $hDestPorts
+		ixNet commit
+		
+		set endpointSet [ ixNet remapIds $endpointSet ]
+		
+		set highLevelStream [ ixNet getList $handle configElement ]
+			
+		Deputs "endpointSet: $endpointSet"
+	Deputs Step70
+		#-- for every stream is not bi-direction, thus only one highlevelstream will be created when creating endpointSet
+		#set highLevelStream [ ixNet getList $handle configElement ]
+		
+	Deputs "stream handle:$highLevelStream"
+	    foreach hStream $highLevelStream {
+			set ethStack [lindex [ ixNet getList $hStream stack ] 0]
+			set obj [ GetField $ethStack destinationAddress ]
+			ixNet setMultiAttrs $obj \
+					-valueType singleValue \
+					-singleValue "00:00:94:00:00:01"
+			set obj [ GetField $ethStack sourceAddress ]
+			ixNet setMultiAttrs $obj \
+					-valueType singleValue \
+					-singleValue "00:00:00:00:00:01"
+		}
+		ixNet commit
+	Deputs StepDone
+
+		
+	}	
     
     #-- quick stream and advanced stream
     if { [ info exists src ] && [ info exists dst ] } {
+	
 	   if { [ IsIPv4Address $src ] && [ IsIPv4Address $dst ] } {
 #-- quick stream IPv4
 Deputs "Traffic type:quick stream IPv4"
@@ -836,13 +877,25 @@ Deputs "dst:$dstHandle"
 Deputs Step170
 		  ixNet commit
 Deputs Step180
-		  set handle      [ ixNet remapIds $handle ]
+		  #set handle      [ ixNet remapIds $handle ]
 Deputs "handle:$handle"
 		  set endpointSet [ ixNet remapIds $endpointSet ]
 Deputs "ep:$endpointSet"
 		  #-- for every stream is not bi-direction, thus only one highlevelstream will be created
 #            set highLevelStream [ ixNet getList $handle highLevelStream ]
 		  set highLevelStream [ ixNet getList $handle configElement ]
+		  foreach hStream $highLevelStream {
+			set ethStack [lindex [ ixNet getList $hStream stack ] 0]
+			set obj [ GetField $ethStack destinationAddress ]
+			ixNet setMultiAttrs $obj \
+					-valueType singleValue \
+					-singleValue "00:00:94:00:00:01"
+			set obj [ GetField $ethStack sourceAddress ]
+			ixNet setMultiAttrs $obj \
+					-valueType singleValue \
+					-singleValue "00:00:00:00:00:01"
+		}
+		ixNet commit
 Deputs "highLevelStream:$highLevelStream"
 Deputs Step190
 	   }
@@ -1344,16 +1397,11 @@ Deputs "src:$src"
 	}
 Deputs Step150    
     ixNet commit
-	if { [ info exists rcv_ports ] } {
-		set hDestPorts [ list ]
-		foreach dest $rcv_ports {
-			lappend hDestPorts [ $dest cget -handle ]/protocols
-		}
-		set ep [ ixNet getL $handle endpointSet ]
-		ixNet setA $ep -destinations $hDestPorts
-		ixNet commit
-	}
+	ixNet commit
+	after 2000
+	
     if { [ info exists tx_mode ] } {
+	Deputs tx_mode
 	   if { $tx_mode == "burst" } {
 			set tx_mode fixedFrameCount
 	   }
@@ -1368,6 +1416,7 @@ Deputs Step150
     }
     
     if { [ info exists tx_num ] } {
+	Deputs tx_num
 		foreach configElement $highLevelStream {
 			ixNet setA $configElement/transmissionControl -frameCount $tx_num
 		}
@@ -1375,6 +1424,7 @@ Deputs Step150
     }
     
     if { [ info exists frame_len_type ] } {
+	Deputs frame_len_type
 	   if { $frame_len_type == "incr" } {
 		  set frame_len_type increment
 	   }
@@ -1385,6 +1435,7 @@ Deputs Step150
     }
     
     if { [ info exists frame_len ] } {
+	Deputs frame_len
 		foreach configElement $highLevelStream {
 			ixNet setA $configElement/frameSize -fixedSize $frame_len
 		}
@@ -1393,6 +1444,7 @@ Deputs Step150
     
 Deputs Step190
     if { [ info exists min_frame_len ] } {
+	Deputs min_frame_len
 		foreach configElement $highLevelStream {
 
 			ixNet setA $configElement/frameSize -incrementFrom $min_frame_len
@@ -1401,6 +1453,7 @@ Deputs Step190
     }
     
     if { [ info exists max_frame_len ] } {
+	Deputs max_frame_len
 		foreach configElement $highLevelStream {
 			ixNet setA $configElement/frameSize -incrementTo $max_frame_len
 		}
@@ -1408,6 +1461,7 @@ Deputs Step190
    }
     
     if { [ info exists frame_len_step ] } {
+	Deputs "cfg frame_len_step "
 		foreach configElement $highLevelStream {
 			ixNet setA $configElement/frameSize -incrementStep $frame_len_step
 		}
@@ -1415,6 +1469,7 @@ Deputs Step190
     }
 Deputs Step200    
     if { [ info exists enable_fcs_error_insertion ] } {
+	Deputs "cfg enable_fcs_error_insertion"
 	   if { $enable_fcs_error_insertion } {
 		  set crc badCrc
 	   } else {
@@ -1426,6 +1481,7 @@ Deputs Step200
 #		ixNet commit
     }
     if { [ info exists fill_type ] } {
+	Deputs "cfg fill_type"
 	   switch $fill_type {
 		  constant {
 			 set fill_type custom
@@ -1447,6 +1503,7 @@ Deputs Step200
     }
     
     if { [ info exists payload_type ] } {
+	Deputs "cfg payload_type"
 	   switch $payload_type {
 		  CYCBYTE -
 		  USERDEFINE {
@@ -1474,6 +1531,7 @@ Deputs Step200
     } 
     
     if { [ info exists payload ] } {
+	Deputs "cfg payload"
 		foreach configElement $highLevelStream {
 			ixNet setM $configElement/framePayload \
 				-customRepeat true \
@@ -1484,6 +1542,7 @@ Deputs Step200
     }
 	  
     if { [ info exists load_unit ] } {
+	Deputs "cfg load_unit"
 		foreach configElement $highLevelStream {
 			switch $load_unit {
 				KBPS {
@@ -1516,35 +1575,24 @@ Deputs Step200
     }
 Deputs Step230
     if { [ info exists inter_frame_gap ] } {
+	Deputs "cfg inter_frame_gap"
 		foreach configElement $highLevelStream {
 			ixNet setA $configElement/transmissionControl -minGapBytes $inter_frame_gap       
 		}
     } 
-    # if { [ info exists inter_frame_gap ] } {
-		# foreach configElement $highLevelStream {
-			# ixNet setA $configElement/transmissionControl -minGapBytes $inter_frame_gap       
-		# }
-    # } else {
-# Deputs Step240	    
-		# set  inter_frame_gap [ $portObj cget -inter_burst_gap ]
-		# if { [ string is integer $inter_frame_gap ] } {
-	# Deputs Step250	
-			# foreach configElement $highLevelStream {
-
-				# ixNet setA $configElement/transmissionControl -minGapBytes $inter_frame_gap       
-			# }
-					
-		# }
-    # }
-    
+  
+   
     if { [ info exists stream_load ] } {
+	Deputs "cfg stream_oad"
 		foreach configElement $highLevelStream {
 			ixNet setM $configElement/frameRate \
 				-rate $stream_load
 		}
 #		ixNet commit
     }
+	
     if { [ info exists latency_type ] } {
+	Deputs "cfg latency_type"
 	    switch $latency_type {
 		    lifo {
 			    set latency_type storeForward
@@ -1562,99 +1610,22 @@ Deputs Step230
 	    set root [ixNet getRoot]
 	    ixNet setA $root/traffic/statistics/latency -mode $latency_type
     }
+	
     
     ixNet commit
 Deputs Step250	
+    if { $enable_sig } {
+		
+		ixNet setA $handle/tracking -trackBy [list flowGroup0 trackingenabled0]
+		ixNet commit
+	}
 	ixNet setA $handle -enabled True
 	ixNet commit
+	
+	Deputs "Step280"			
+				ixNet exec generate $handle
+				ixNet commit
 
-	set trafficItemType [ ixNet getA $handle -trafficType ]
-	# if { $trafficItemType == "raw" } {
-		# #-- check mac
-		# set endpointSetList [ixNet getL $handle endpointSet]
-		# foreach ele 	[ ixNet getList $handle configElement ]  {
-
-			# set epId [ ixNet getA $ele -endpointSetId ]
-			# set endpointSet [ lindex $endpointSetList [expr $epId -1] ]
-	# Deputs "endpoint:$endpointSet"
-			# set eth [ lindex [ ixNet getL $ele stack ] 0  ]
-	# Deputs "ele:$ele"	
-			# set sources [ixNet getA $endpointSet -sources]
-			# set srcMac ""
-			# set dstMac ""
-	# Deputs "sources:$sources"
-			# foreach  srcPort $sources  {
-	# Deputs "srcPort:$srcPort"
-				# set hPort [ ixNet getP $srcPort ]
-				# set int [ lindex [ ixNet getL $hPort interface ] 0 ]
-	# Deputs "int:$int"
-				# if { $int == "" } {
-					# continue
-				# }
-				# if { [ ixNet exists $int/ipv4 ] == "false" } {
-					# continue
-				# }
-				# lappend srcMac [ ixNet getA $int/ethernet -macAddress ]
-	# Deputs "mac:$srcMac"		
-				# if { [ ixNet getF $ele stack -templateName ipv6-template.xml ] == "" } {
-	# Deputs "Step300"
-					# set gw [ ixNet getA $int/ipv4 -gateway ]
-				# } else {
-	# Deputs "Step310"
-					# set ipv6Int [ lindex [ixNet getL $int ipv6] 0 ]
-					# if { [ llength $ipv6Int ] } {
-						# set gw [ ixNet getA $ipv6Int -gateway ]
-					# } else {
-						# set gw ""
-					# }
-				# }
-	# Deputs "gw:$gw"
-				# set neighbor [ixNet getF $hPort discoveredNeighbor -neighborIp $gw]
-				# if { [ llength $neighbor ] } {
-					# lappend dstMac [ ixNet getA $neighbor -neighborMac ]
-				# } else {
-					# lappend dstMac "00:00:00:00:00:02"
-				# }
-	# Deputs "dstMac:$dstMac "
-			# }
-	# Deputs "eth:$eth"		
-			# set dst [ixNet getF $eth field -name destinationAddress]
-			# set src [ixNet getF $eth field -name sourceAddress]
-			# if { $src == "" || $dst == "" } {
-				# continue
-			# }
-	# Deputs "srcMac: [ixNet getA $src -singleValue]"
-	# Deputs "dstMac: [ixNet getA $dst -singleValue]"
-	# Deputs "srcMac: [ixNet getA $src -startValue]"
-	# Deputs "dstMac: [ixNet getA $dst -startValue]"
-			# set regenerate 0
-			# if { [ixNet getA $dst -singleValue] == "00:00:00:00:00:00" && [ixNet getA $dst -startValue] == "00:00:00:00:00:00" } {
-# Deputs "Step260"		
-				# if { [ llength $dstMac ] > 0 } {
-					# ixNet setM $dst -valueType valueList -valueList $dstMac
-				# } else {
-					# ixNet setM $dst -valueType valueList -valueList "00:00:00:00:00:02"
-				# }
-				
-				# set regenerate 1
-			# }
-			# if { [ixNet getA $src -singleValue] == "00:00:00:00:00:00" && [ixNet getA $src -startValue] == "00:00:00:00:00:00" } {
-# Deputs "Step270"		
-				# if { [ llength $srcMac ] > 0 } {
-					# ixNet setM $src -valueType valueList -valueList $srcMac
-				# } else {
-					# ixNet setM $src -valueType valueList -valueList "00:00:00:00:00:01"
-				# }
-				# set regenerate 1
-			# }
-			
-			# if { $regenerate } {
-				# ixNet exec generate $handle
-				# ixNet commit
-			# }
-		# }
-		
-	# }
 	
     return [GetStandardReturnHeader]
 
@@ -1777,9 +1748,24 @@ Deputs Step70
     set highLevelStream [ ixNet getList $handle configElement ]
 Deputs "stream handle:$highLevelStream"
 Deputs StepDone
+    # foreach hStream $highLevelStream {
+	    # set ethStack [lindex [ ixNet getList $hStream stack ] 0]
+		# set obj [ GetField $ethStack destinationAddress ]
+		# ixNet setMultiAttrs $obj \
+				# -valueType singleValue \
+				# -singleValue "00:00:94:00:00:01"
+		# set obj [ GetField $ethStack sourceAddress ]
+		# ixNet setMultiAttrs $obj \
+				# -valueType singleValue \
+				# -singleValue "00:00:00:00:00:01"
+	# }
+	# ixNet commit
+	
+	
 
 	if { $enable_sig } {
-		ixNet setA $handle/tracking -trackBy sourceDestPortPair0
+		#ixNet setA $handle/tracking -trackBy sourceDestPortPair0
+		ixNet setA $handle/tracking -trackBy [list flowGroup0 trackingenabled0]
 		ixNet commit
 	}
 
@@ -2434,9 +2420,10 @@ body EtherHdr::config { args } {
     global errorInfo
     global errNumber
 
-
+Deputs "args: $args"
     set tag "body EtherHdr::config [info script]"
 Deputs "----- TAG: $tag -----"
+	puts $type
     if { $type != "MOD"} {
         set sa [ RandomMacAddr ]
 		set da [ RandomMacAddr ]
@@ -2509,6 +2496,7 @@ Deputs "dstmacstep: $dstmacstep"
 			 set trans [ UnitTrans $value ]
 			 if { [ string is integer $trans ] } {
 				set saNum $trans
+		Deputs "saNum: $saNum"
 			 } else {
 				error "$errNumber(1) key:$key value:$value"
 			 }
@@ -2615,16 +2603,12 @@ Deputs "step:$step"
 				    AddFieldConfig \
 				    [ list $daoffset $da $daNum $step ]
 				    
-				} else {
-				    error "$errNumber(2) key:dst_num/dst_step"
-				}
+				} 
 				if { [ info exists daNum ] && [ info exists dstmacstep ] } {
 				    set daoffset [ expr 48 - $daoffset ]
 				    AddFieldMode $daReCnt
 				    AddField destinationAddress
 				    AddFieldConfig [ list $daoffset $da $daNum $dstmacstep ]
-				} else {
-				    error "$errNumber(2) key:src_num/src_step"
 				}
 			 }
 		  }
@@ -2649,17 +2633,13 @@ Deputs "step:$step"
 				    AddFieldMode $saReCnt
 				    AddField sourceAddress
 				    AddFieldConfig [ list $saoffset $sa $saNum $step ]
-				} else {
-				    error "$errNumber(2) key:src_num/src_step"
-				}
+				} 
 				if { [ info exists saNum ] && [ info exists srcmacstep ] } {
 				    set saoffset [ expr 48 - $saoffset ]
 				    AddFieldMode $saReCnt
 				    AddField sourceAddress
 				    AddFieldConfig [ list $saoffset $sa $saNum $srcmacstep ]
-				} else {
-				    error "$errNumber(2) key:src_num/src_step"
-				}
+				} 
 				
 			 }
 		  }

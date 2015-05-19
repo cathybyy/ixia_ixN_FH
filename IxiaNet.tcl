@@ -217,6 +217,7 @@ set tportlist [list]
 set flownamelist [list]
 set flowlist [list]
 set flowitemlist [list]
+set traffictxportlist [list]
 
 proc loadconfig { filename } {
     global portlist
@@ -289,6 +290,7 @@ puts "Login...$location"
 		ixNet disconnect
 		ixNet connect $server -version $ixN_tcl_v -port $port
 		set root [ ixNet getRoot]
+		
 		if { $force } {
 			puts "Login successfully on port $port."
 			#return	
@@ -303,6 +305,12 @@ puts "Login...$location"
                 set flag 1
 			}
 		}
+		
+		ixNet setA $root/traffic/statistics/l1Rates -enabled True
+		ixNet setA $root/traffic \
+				-enableDataIntegrityCheck False \
+				-enableMinFrameSize True
+		ixNet commit
         
         if { $flag == 1 } {
             if { $filename != "null" } {

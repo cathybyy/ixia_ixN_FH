@@ -11,21 +11,22 @@ class BgpSession {
     inherit RouterEmulationObject
  	public variable routeBlock
        
-    constructor { port { pHandle null } } {
+    constructor { port { pHandle null } { hInterface null } } {
 
 		set tag "body BgpSession::ctor [info script]"
 Deputs "----- TAG: $tag -----"
+        set routeBlock(obj) ""
 		set portObj [ GetObject $port ]
         if { $pHandle != "null" } {
             set handle $pHandle
             
         } else {
-		    reborn
+		    reborn $hInterface
         }
 	}
 	
 
-	method reborn {} {
+	method reborn { { hInterface null }} {
 		global errNumber
 		
 		set tag "body BgpSession::reborn [info script]"
@@ -60,10 +61,16 @@ Deputs "----- TAG: $tag -----"
 				-enabled True
 			ixNet commit
 		}
+		if { $hInterface != "null" } {		    
+		} else {
+		    set hInterface [ lindex $interface 0 ]
+		}
 		ixNet setA $handle \
 			-interfaceType "Protocol Interface" \
-			-interfaces [ lindex $interface 0 ]
+			-interfaces $hInterface
 		ixNet commit
+		set interface $hInterface
+
 	}
     method config { args } {}
 	method enable {} {}
@@ -82,8 +89,9 @@ body BgpSession::config { args } {
     global errNumber
     set tag "body BgpSession::config [info script]"
 Deputs "----- TAG: $tag -----"
-	
+	set hold_time_interval 10
 #param collection
+    
 Deputs "Args:$args "
     foreach { key value } $args {
         set key [string tolower $key]
@@ -94,6 +102,7 @@ Deputs "Args:$args "
             -sub_afi {
             	set sub_afi $value
             }
+			-as_num -
             -as {
             	set as $value
             }
@@ -112,8 +121,12 @@ Deputs "Args:$args "
             -enable_refresh_routes {
             	set enable_refresh_routes $value
             }
+			-hold_time -
             -hold_time_interval {
             	set hold_time_interval $value
+            }
+			-keep_time {
+            	set keep_time_interval $value
             }
             -ip_version {
             	set ip_version $value
@@ -124,12 +137,30 @@ Deputs "Args:$args "
 			-ipv4_gw {
 				set ipv4_gw $value
 			}
+			-bgp_type -
 			-type {
-				set type $value
+			    if {$value == "ebgp"} {
+				   set type "external"
+				} elseif {$value == "ibgp" } {
+				   set type "internal"
+				} else {
+				   set type $value
+				}
+				
+			
 			}
 			-bgp_id {
 				set bgp_id $value
 			}
+			-active {
+				set enabled $value
+			}
+			-authentication {
+				set authentication $value
+			}
+			-password {
+				set password $value
+			}			
 		}
     }
 	
@@ -144,6 +175,13 @@ Deputs "interface:$interface"
 	}
 	if { [ info exists ipv4_gw ] } {
 		ixNet setA $interface/ipv4 -gateway $ipv4_gw		
+	}
+	if {[ info exists as ] && [ info exists dut_as ]} {
+	    if { $as == $dut_as } {
+		    set type "internal"
+		} else {
+		    set type "external"
+		}
 	}
 	if { [ info exists type ] } {
 		ixNet setA $handle -type $type
@@ -169,11 +207,22 @@ Deputs "not implemented parameter: safi"
     if { [ info exists enable_refresh_routes ] } {
     }
     if { [ info exists hold_time_interval ] } {
+	    ixNet setA $handle  -holdTimer $hold_time_interval
     }
     if { [ info exists ip_version ] } {
     }
+	if { [ info exists authentication ] } {
+	    if { $authentication == "md5"} {
+		    ixNet setM $handle -authentication md5 \
+		    -md5Key $password
+		}
+	    
+    }
 	if { [ info exists bgp_id ] } {
 		ixNet setA $handle -bgpId $bgp_id
+	}
+	if { [ info exists enabled ] } {
+		ixNet setA $handle -enabled $enabled
 	}
 	
 	ixNet commit
@@ -185,7 +234,7 @@ body BgpSession::set_route { args } {
 
     global errorInfo
     global errNumber
-    set tag "body BgpSession::config [info script]"
+    set tag "body BgpSession::set_route [info script]"
 Deputs "----- TAG: $tag -----"
 
 #param collection
@@ -207,19 +256,27 @@ Deputs "Args:$args "
 			set prefix_len 	[ $rb cget -prefix_len ]
 			set start 		[ $rb cget -start ]
 			set type 		[ $rb cget -type ] 
+			set active      [ $rb cget -active]
 			
-			set hRouteBlock [ ixNet add $handle routeRange ]
-			ixNet commit
-			set hRouteBlock [ ixNet remapIds $hRouteBlock ]
-			set routeBlock($rb,handle) $hRouteBlock
-			lappend routeBlock(obj) $rb
+			if { [lsearch $routeBlock(obj) $rb] == -1 } {
+			    set hRouteBlock [ ixNet add $handle routeRange ]
+				ixNet commit
+				set hRouteBlock [ ixNet remapIds $hRouteBlock ]
+				set routeBlock($rb,handle) $hRouteBlock
+				lappend routeBlock(obj) $rb
+			} else {
+			    set hRouteBlock $routeBlock($rb,handle)
+			}
 			
+		puts "hRouteBlock: $hRouteBlock"	
+		puts "$num; $type; $start; $prefix_len; $step"
 			ixNet setM $hRouteBlock \
 				-numRoutes $num \
 				-ipType $type \
 				-networkAddress $start \
 				-fromPrefix $prefix_len \
-				-iterationStep $step
+				-iterationStep $step  \
+				-enabled $active
 			ixNet commit
 		}
 	}

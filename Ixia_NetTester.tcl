@@ -1043,11 +1043,14 @@ Deputs "location:$location"
 					if { $release_port == 0 } {
 Deputs "obj: $obj location:$location"					
 						$obj Connect $location
-					}
+					} else {
+                        $obj unconfig
+                        delete object $obj
+                    }
 				} else {
 Deputs Step30
 					$obj unconfig
-					#delete object $obj
+					delete object $obj
 				}
 			} else {
 				continue

@@ -1,5 +1,6 @@
 package require Itcl
 package require registry
+package req ip
 namespace import itcl::*
 
 
@@ -556,6 +557,37 @@ proc FmtInt2Hex {byte btnum} {
 	return $hex
 }
 
+proc IsSameNetwork { IP1 IP2 mask } {
+   
+    set seg1List [split $IP1 "."]
+	set seg2List [split $IP2 "."]
+	set times [expr $mask / 8]
+	set move  [expr $mask % 8]
+
+	for { set i 0 } {$i < $times } {incr i} {
+	    set seg1 [lindex $seg1List $i]
+		set seg2 [lindex $seg2List $i]
+		
+	    if { $seg1 != $seg2 } {
+		   return 0
+		}
+	}
+	if { $move != 0} {
+	    set seg1 [lindex $seg1List $i]
+		set seg2 [lindex $seg2List $i]
+	
+		set seg1 [expr $seg1 > $move]
+		set seg2 [expr $seg2 > $move]
+	
+		if { $seg1 != $seg2 } {
+		   return 0
+		}
+	}
+		
+	return 1
+}
+
+
 proc IncrementIPAddr { IP prefixLen { num 1 } } {
     set Increament_len [ expr 32 - $prefixLen ]
     set Increament_pow [ expr pow(2,$Increament_len) ]
@@ -583,6 +615,7 @@ proc IncrementIPAddr { IP prefixLen { num 1 } } {
     return [format %u 0x$A].[format %u 0x$B].[format %u 0x$C].[format %u 0x$D]
 }
 proc IncrementIPv6Addr { IP prefixLen { num 1 } } {
+    set IP [::ip::normalize $IP]
 Deputs "pfx len:$prefixLen IP:$IP num:$num"
 	set segList [ split $IP ":" ]
 	set seg [ expr $prefixLen / 16 - 1 ]

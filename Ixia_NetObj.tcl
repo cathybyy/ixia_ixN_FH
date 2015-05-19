@@ -92,7 +92,7 @@ class ProtocolStackObject {
     inherit EmulationObject
     public variable stack
     
-    method reborn { { onStack null } } {
+    method reborn { { onStack null } { phandle null } } {
 		set tag "body ProtocolStackObject::reborn [info script]"
 Deputs "----- TAG: $tag -----"
 		if { [ info exists hPort ] == 0 } {
@@ -435,14 +435,20 @@ class RouteBlock {
 	public variable step
 	public variable prefix_len
 	public variable type
+	public variable active
+	public variable up_device
 	
 	constructor {} {
 		set num 1
 		set step 1
 		set prefix_len 24
 		set start 100.0.0.1
+		set active 1
 	}
 	method config { args } {}
+	method SetUpDevice { updevice } {
+	    set up_device $updevice
+	}
 }
 
 body RouteBlock::config { args } {
@@ -456,9 +462,11 @@ Deputs "Args:$args "
     foreach { key value } $args {
         set key [string tolower $key]
         switch -exact -- $key {
+		    -route_count -
             -num {
             	set num $value
-            }            
+            }
+            -start_ip -            
             -start {
 				if { [ IsIPv4Address $value ] } {
 					set type ipv4
@@ -466,13 +474,24 @@ Deputs "Args:$args "
 					set type ipv6
 				}
             	set start $value
+				puts "start: $value"
             }
+			-incr_step -
             -step {
             	set step $value
             }            
             -prefix_len {
             	set prefix_len $value
             }
+			-active {
+			    set active $value
+			}
+			-metric_route {
+				set metric_route $value
+			}
+			-metric_lsa {
+				set metric_lsa $value
+			}
         }
     }
 	

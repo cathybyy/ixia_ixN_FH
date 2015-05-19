@@ -9,9 +9,10 @@
 
 class IsisSession {
     inherit RouterEmulationObject
-		
-    constructor { port { pHandle null } } {}
-    method reborn {} {}
+	public variable routeBlock	
+    constructor { port { pHandle null } {hInterface null } } {}
+    method reborn { {hInterface null} } {}
+	method set_route { args } {}
     method config { args } {}
     method get_fh_stats {} {}
 	method advertise_route { args } {}
@@ -19,37 +20,67 @@ class IsisSession {
 
 	public variable mac_addr
 }
-
-body IsisSession::reborn {} {
+body IsisSession::constructor { port { pHandle null } {hInterface null} } {
+    set tag "body IsisSession::constructor [info script]"
+    Deputs "----- TAG: $tag -----"
+	
+    global errNumber
+    set routeBlock(obj) ""
+    #-- enable protocol
+    set portObj [ GetObject $port ]
+Deputs "port:$portObj"
+   # if { [ catch {
+   #    set hPort   [ $portObj cget -handle ]
+    #Deputs "port handle: $hPort"
+    #} ] } {
+	 #   error "$errNumber(1) Port Object in IsisSession ctor"
+    #}
+Deputs "initial port..."
+    if { $pHandle != "null" } {
+        set handle $pHandle
+       #set rb_interface  [ ixNet getL $handle interface ]
+    } else {
+	    reborn $hInterface
+    }
+Deputs "Step10"
+}
+body IsisSession::reborn { {hInterface null } } {
+	global errNumber
     set tag "body IsisSession::reborn [info script]"
     Deputs "----- TAG: $tag -----"
 	#-- add isis protocol
-Deputs "hPort:$hPort"
+	if { [ catch {
+		set hPort  [ $portObj cget -handle ]
+		} ] } {
+			error "$errNumber(1) Port Object in DhcpHost ctor"
+		}
+	Deputs "hPort:$hPort"
+	ixNet setA $hPort/protocols/isis -enabled True
 	set handle [ ixNet add $hPort/protocols/isis router ]
-	ixNet setA $handle -name $this
 	ixNet commit
-	set handle [ ixNet remapIds $handle ]
-Deputs "handle:$handle"
-
+	set handle [ ixNet remapIds $handle]
+	ixNet setM $handle \
+		-name $this \
+		-enabled True
+	ixNet commit
+	Deputs "handle:$handle"
+	array set routeBlock [ list ]
 	#-- add router interface
-	set intList [ ixNet getL $hPort interface ]
-	if { [ llength $intList ] } {
-		set interface [ lindex $intList 0 ]
-	} else {
+	set interface [ ixNet getL $hPort interface]
+	if { [ llength $interface ] == 0 } {
 		set interface [ ixNet add $hPort interface ]
-		ixNet setA $interface -enabled True
+		ixNet add $interface ipv4
 		ixNet commit
 		set interface [ ixNet remapIds $interface ]
+		ixNet setM $interface \
+			-enabled True
+		ixNet commit
 	Deputs "port interface:$interface"
 	}
-	ixNet setA $hPort/protocols/isis -enabled True
-	ixNet setA $handle -enabled True
-	ixNet commit
-	#-- add vlan
-	set vlan [ ixNet add $interface vlan ]
-	ixNet commit
-	
-	#-- port/protocols/isis/router/interface
+	if { $hInterface != "null"} {
+	} else {
+		set hInterface [ lindex $interface 0 ]
+	}
 	set rb_interface  [ ixNet add $handle interface ]
 	ixNet setM $rb_interface \
 	    -interfaceId $interface \
@@ -57,34 +88,14 @@ Deputs "handle:$handle"
 	    -enabled True
 	ixNet commit
 	set rb_interface [ ixNet remapIds $rb_interface ]
-Deputs "rb_interface:$rb_interface"    
-}
-
-body IsisSession::constructor { port { pHandle null } } {
-    set tag "body IsisSession::constructor [info script]"
-    Deputs "----- TAG: $tag -----"
+    Deputs "rb_interface:$rb_interface"  
+	#-- add vlan
+	#set vlan [ ixNet add $interface vlan ]
+	#ixNet commit
 	
-    global errNumber
-    
-    #-- enable protocol
-    set portObj [ GetObject $port ]
-Deputs "port:$portObj"
-    if { [ catch {
-	    set hPort   [ $portObj cget -handle ]
-Deputs "port handle: $hPort"
-    } ] } {
-	    error "$errNumber(1) Port Object in IsisSession ctor"
-    }
-Deputs "initial port..."
-    if { $pHandle != "null" } {
-        set handle $pHandle
-        set rb_interface  [ ixNet getL $handle interface ]
-    } else {
-	    reborn
-    }
-Deputs "Step10"
+	#-- port/protocols/isis/router/interface
+  
 }
-
 body IsisSession::config { args } {
     set tag "body IsisSession::config [info script]"
 Deputs "----- TAG: $tag -----"
@@ -128,6 +139,7 @@ Deputs "----- TAG: $tag -----"
             -hello_interval {
             	set hello_interval $value  	    	
             }
+			-holding_time -
             -dead_interval {
             	set dead_interval $value  	    	
             }
@@ -137,6 +149,7 @@ Deputs "----- TAG: $tag -----"
 			-level_type {
             	set level_type $value
             }
+			-lsp_refresh -
             -lsp_refreshtime {
             	set lsp_refreshtime $value
             }
@@ -153,6 +166,42 @@ Deputs "wrong mac addr: $value"
                 }
 				
 			}
+			-active {
+				set enabled $value
+			}
+			-router_pri {
+			}
+			-area_id1 {
+			}
+			-area_id2 {
+			}
+			-metri_type {
+			}
+			-max_lspsize {
+				set max_lspsize $value
+			}
+			-isis_authentication {
+				set isis_authentication $value
+			}
+			-isis_password {
+				set isis_password $value
+			}
+			-isis_md5_keyid {
+				set isis_md5_keyid $value
+			}
+			-password {
+				set password $value
+			}
+			-md5_keyid {
+				set md5_keyid $value
+			}
+			-area_authentication {
+				set area_authentication $value
+			}
+			-domain_authentication {
+				set domain_authentication $value
+			}
+			
 		}
     }
 	
@@ -165,23 +214,23 @@ Deputs "sys_id: $sys_id"
 	    ixNet setA $handle -systemId $sys_id
     }
     if { [ info exists network_type ] } {
-	    ixNet setA $rb_interface -networkType $network_type
+	    ixNet setA $interface -networkType $network_type
     }
     if { [ info exists discard_lsp ] } {
     	ixNet setA $handle -enableDiscardLearnedLsps $discard_lsp
     }
 	if { [ info exists level_type ] } {
-    	ixNet setA $rb_interface -level $level_type
+    	ixNet setA $interface -level $level_type
     }
 	
     if { [ info exists metric ] } {
-	    ixNet setA $rb_interface -metric $metric
+	    ixNet setA $interface -metric $metric
     }
     if { [ info exists hello_interval ] } {
-	    ixNet setA $rb_interface -level1HelloTime $hello_interval
+	    ixNet setA $interface -level1HelloTime $hello_interval
     }
     if { [ info exists dead_interval ] } {
-	    ixNet setA $rb_interface -level1DeadTime $dead_interval
+	    ixNet setA $interface -level1DeadTime $dead_interval
     }
     if { [ info exists vlan_id ] } {
 	    set vlan [ixNet getL $interface vlan]
@@ -196,6 +245,35 @@ Deputs "sys_id: $sys_id"
 	if { [ info exists mac_addr ] } {
 Deputs "interface:$interface mac_addr:$mac_addr"
 		ixNet setA $interface/ethernet -macAddress $mac_addr
+	}
+	if { [ info exists enabled ] } {
+		ixNet setA $handle -enabled $enabled
+	}
+	if { [ info exists max_lspsize ] } {
+		ixNet setA $handle -lspMaxSize $max_lspsize
+	}
+	if { [ info exists isis_authentication ] } {
+		ixNet setM $handle -
+	}
+	if { [ info exists area_authentication ] } {
+		if { $area_authentication == "md5" } {
+			ixNet setM $handle -areaAuthType MD5 \
+				-areaTransmitPassword $md5_keyid
+        }
+		if { $area_authentication == "password" } {
+			ixNet setM $handle -areaAuthType password \
+				-areaTransmitPassword $password
+        }
+	}
+	if { [ info exists domain_authentication ] } {
+		if { $domain_authentication == "md5" } {
+			ixNet setM $handle -domainAuthType MD5 \
+				-domainTransmitPassword $md5_keyid
+        }
+		if { $domain_authentication == "password" } {
+			ixNet setM $handle -domainAuthType password \
+				-domainTransmitPassword $password
+        }
 	}
     ixNet commit
 }
@@ -212,6 +290,58 @@ Deputs "interface:$interface mac_addr:$mac_addr"
 #{RBChannel Echo Reply Tx} {RBChannel Echo Reply Rx} {RBChannel Error Tx} {RBChannel Error Rx} {RBChannel ErrNotif Tx} {RBChannel ErrNotif Rx} 
 #{RBridges Learned} {Unicast MAC Ranges Learned} {MAC Group Records Learned}
 # {IPv4 Group Records Learned} {IPv6 Group Records Learned} {Rate Control Blocked Sending LSP/MGROUP}
+body IsisSession::set_route { args } {
+
+    global errorInfo
+    global errNumber
+    set tag "body BgpSession::set_route [info script]"
+Deputs "----- TAG: $tag -----"
+
+#param collection
+Deputs "Args:$args "
+    foreach { key value } $args {
+        set key [string tolower $key]
+        switch -exact -- $key {
+            -route_block {
+            	set route_block $value
+				puts "route_block:$route_block"
+            }
+        }
+    }
+	if { [ info exists route_block ] } {
+		foreach rb $route_block {
+		set num 		[ $rb cget -num ]
+		set step 		[ $rb cget -step ]
+		set prefix_len 	[ $rb cget -prefix_len ]
+		set start 		[ $rb cget -start ]
+		set type 		[ $rb cget -type ] 
+		set active      [ $rb cget -active]
+			
+		if { [lsearch $routeBlock(obj) $rb] == -1 } {
+			set hRouteBlock [ ixNet add $handle routeRange ]
+			ixNet commit
+			set hRouteBlock [ ixNet remapIds $hRouteBlock ]
+			set routeBlock($rb,handle) $hRouteBlock
+			lappend routeBlock(obj) $rb
+			} else {
+			    set hRouteBlock $routeBlock($rb,handle)
+			}
+			
+		puts "hRouteBlock: $hRouteBlock"	
+		puts "$num; $type; $start; $prefix_len; $step"
+			ixNet setM $hRouteBlock \
+				-numberOfRoutes $num \
+				-type $type \
+				-maskWidth $prefix_len \
+				-enabled $active
+			ixNet commit
+		}
+	}
+	
+    return [GetStandardReturnHeader]
+	
+
+}
 
 body IsisSession::get_fh_stats {} {
 

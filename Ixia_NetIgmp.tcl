@@ -11,9 +11,8 @@
 #		3. Add join_group method
 
 class IgmpHost {
-    inherit RouterEmulationObject
-    	
-    constructor { port { pHandle null } } {}
+    inherit RouterEmulationObject   	
+    constructor { port { pHandle null } { hInterface null } } {}
     method config { args } {}
 	method unconfig {} {
 		set tag "body IgmpHost::unconfig [info script]"
@@ -46,7 +45,7 @@ Deputs "----- TAG: $tag -----"
 
 }
 
-body IgmpHost::constructor { port { pHandle null } } {
+body IgmpHost::constructor { port { pHandle null } { hInterface null } } {
     
     global errNumber
     
@@ -63,7 +62,7 @@ Deputs "----- TAG: $tag -----"
 	#-- enable igmp emulation
 	ixNet setA $hPort/protocols/igmp -enabled True
 	ixNet commit
-    
+    set handle ""
     if { $pHandle != "null" } {
         set handle $pHandle
     }
@@ -72,9 +71,14 @@ Deputs "----- TAG: $tag -----"
     set ipaddr_step 	0.0.0.1
     set vlan_id1_step	1
     set vlan_id2_step	1
-	set interface [ list ]
+	set interface   [ list ]
 	set group_list	[ list ]
 	array set group_handle [list]
+	if { $hInterface != "null" } {
+	    set interface $hInterface
+		config
+	}
+	
 
 }
 
@@ -84,6 +88,7 @@ body IgmpHost::config { args } {
     set tag "body IgmpHost::config [info script]"
 Deputs "----- TAG: $tag -----"
 	
+	set version "v2"
 #param collection
 Deputs "Args:$args "
     foreach { key value } $args {
@@ -269,23 +274,25 @@ Deputs "Bad count of interface...$int_cnt"
 
 Deputs "int len:[ llength $interface ]"	
 	if { [ llength $interface ] > 0 } {
-		set handle ""
-		# -- add igmp host
-		foreach int $interface {
+		if { $handle == "" } {
+		   foreach int $interface {
 
-			set host [ ixNet add $hPort/protocols/igmp host ]
-			
-			ixNet setM $host \
-				-interfaceType {Protocol Interface} \
-				-enabled True 
-			ixNet commit
-			lappend handle [ixNet remapIds $host]
+				set host [ ixNet add $hPort/protocols/igmp host ]
+				
+				ixNet setM $host \
+					-interfaceType {Protocol Interface} \
+					-enabled True 
+				
+				ixNet commit
+				lappend handle [ixNet remapIds $host]
 
-	Deputs "protocol interface:$int"
-			ixNet setA $handle -interfaces $int
-			ixNet commit
+		Deputs "protocol interface:$int"
+				ixNet setA $handle -interfaces $int
+				ixNet commit
+			}
 		}
 	}
+
 
 # -gqResponseMode True \
 # -interfaceIndex 1 \
@@ -300,12 +307,15 @@ Deputs "int len:[ llength $interface ]"
 	foreach h $handle {
 		if { [ info exists version ] } {
 			switch $version {
+			    igmpv1 -
 				v1 {
 					set ixversion igmpv1
 				}
+				igmpv2 -
 				v2 {
 					set ixversion igmpv2
 				}
+				igmpv3 -
 				v3 {
 					set ixversion igmpv3
 				}
@@ -370,10 +380,21 @@ Deputs "----- TAG: $tag -----"
 			set grpIndex [ lsearch $group_list $group ]
 			if { $grpIndex >= 0 } {
 	Deputs Step30
+	           
+				set group_ip [ $group cget -group_ip ]
+				set group_num [ $group cget -group_num ]
+				set group_step [ $group cget -group_step ]
+				
 				foreach hIgmp $handle {
 
 					set hGroup	$group_handle($group,$hIgmp)
 					ixNet setA $hGroup -enabled True
+					ixNet setM $hGroup \
+						-enabled True \
+						-groupCount $group_num \
+						-groupFrom $group_ip \
+						-incrementStep $incrStep 
+						
 					ixNet commit
 				}
 			} else {
@@ -611,8 +632,12 @@ class MulticastGroup {
 	public variable group_num
 	public variable group_step
 	public variable group_modbit
+	public variable up_device
 
 	method config { args } {}
+	method SetUpDevice { updevice } {
+	    set up_device $updevice
+	}
 	
 	constructor { } {
 		set filter_mode 		exclude
@@ -620,7 +645,7 @@ class MulticastGroup {
 		set source_num			1
 		set source_step			1
 		set source_modbit		32
-		set group_ip			224.0.0.0
+		set group_ip			225.0.0.1
 		set group_num			1
 		set group_step			1
 		set group_modbit		32
@@ -879,4 +904,128 @@ Deputs "----- TAG: $tag -----"
 	return [ GetStandardReturnHeader ]
 
 }
+
+class IgmpQuerier {
+	inherit IgmpHost	
+	
+	constructor { port { pHandle null } { hInterface null } } {		
+
+		chain $port $pHandle $hInterface
+		
+	} {
+		set tag "body IgmpQuerier::ctor [info script]"
+Deputs "----- TAG: $tag -----"
+		
+	}
+			
+	method config { args } {}
+
+}
+
+body IgmpQuerier::config { args } {
+    global errorInfo
+    global errNumber
+    set tag "body IgmpQuerier::config [info script]"
+Deputs "----- TAG: $tag -----"
+    set version 2
+	set query_interval 125
+	set query_respon_interval 2
+	
+#param collection
+Deputs "Args:$args "
+    foreach { key value } $args {
+        set key [string tolower $key]
+        switch -exact -- $key {
+            -query_interval {
+            	set query_interval $value
+            }
+            -query_respon_interval {
+            	set query_respon_interval $value
+            }
+            -version {
+            	set version $value
+            }
+            -startup_query_count {
+            	set startup_query_count $value
+            }
+            -last_member_query_interval {
+            	set last_member_query_interval $value
+            }
+            -last_member_query_count {
+            	set last_member_query_count $value
+            }
+		}
+    }
+		   
+
+
+	#-- enable igmp emulation
+	ixNet setA $hPort/protocols/igmp -enabled True
+	ixNet commit
+
+Deputs "int len:[ llength $interface ]"	
+	if { [ llength $interface ] > 0 } {
+		if {$handle == ""} {
+			# -- add igmp querier
+			foreach int $interface {
+
+				set  querier [ ixNet add $hPort/protocols/igmp querier ]
+				
+				ixNet setM $querier \
+					-interfaceType {Protocol Interface} \
+					-enabled True 
+				
+				ixNet commit
+				lappend handle [ixNet remapIds $querier]
+
+		Deputs "protocol interface:$int"
+				ixNet setA $handle -interfaces $int
+				ixNet commit
+			}
+		}
+	}
+
+   
+
+	foreach h $handle {
+		if { [ info exists version ] } {
+			switch $version {
+			    1 -
+				v1 {
+					set ixversion igmpv1
+				}
+				2 -
+				v2 {
+					set ixversion igmpv2
+				}
+				3 -
+				v3 {
+					set ixversion igmpv3
+				}
+			}
+			ixNet setA $h -version $ixversion
+		}
+		if { [ info exists query_interval ] } {
+			ixNet setA $h -generalQueryInterval $query_interval
+		}
+		if { [ info exists query_respon_interval ] } {
+			ixNet setA $h -gqResponseInterval $query_respon_interval
+		}
+		if { [ info exists startup_query_count ] } {
+			ixNet setA $h -startupQueryCount $startup_query_count
+		}
+		if { [ info exists last_member_query_interval ] } {
+			ixNet setA $h -sqResponseInterval $last_member_query_interval
+		}
+		if { [ info exists last_member_query_count ] } {
+			ixNet setA $h -sqTransmissionCount $last_member_query_count
+		}
+		ixNet commit
+	}
+    	
+	
+	return [ GetStandardReturnHeader ]	
+	
+}
+
 

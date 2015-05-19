@@ -10,32 +10,70 @@
 
 class OspfSession {
     inherit RouterEmulationObject
-    
+	public variable routeBlock
 	public variable hNetworkRange
-	
-    constructor { port } {
+	constructor { port { pHandle null } { hInterface null } } {
 		global errNumber
-		
-		set tag "body OspfvSession::ctor [info script]"
-Deputs "----- TAG: $tag -----"
-
+		set routeBlock(obj) ""
+		set tag "body OspfSession::ctor [info script]"
 		set portObj [ GetObject $port ]
-		if { [ catch {
-			set hPort   [ $portObj cget -handle ]
-		} ] } {
-			error "$errNumber(1) Port Object in DhcpHost ctor"
+Deputs "----- TAG: $tag -----"      
+		#-- add ospf protocol
+        if { $pHandle != "null"  } {
+            set handle $pHandle  
+			set hInt_List [ ixNet getL $handle interface ]
+            foreach hInt $hInt_List {
+			    set int [ixNet getA $hInt -interfaces ]
+			    set interface($int) $hInt	
+		    }
+        } else {
+			if { [ catch {
+				set hPort  [ $portObj cget -handle ]
+				} ] } {
+					error "$errNumber(1) Port Object in DhcpHost ctor"
+				}
+	Deputs "hPort:$hPort" 
+            ixNet setA $hPort/protocols/ospf -enabled True	
+            set handle [ ixNet add $hPort/protocols/ospf router ]
+            ixNet commit
+            set handle [ ixNet remapIds $handle ]
+            ixNet setM $handle \
+				-name $this	\
+				-enabled True
+			ixNet commit
+	Deputs "handle:$handle"
+			array set routeBlock [ list ]
+			#-- add router interface
+			set interface [ ixNet getL $hPort interface]
+			if { [ llength $interface ] == 0 } {
+				set interface [ ixNet add $hPort interface ]
+				ixNet add $interface ipv4
+				ixNet commit
+				set interface [ ixNet remapIds $interface ]
+				ixNet setM $interface \
+					-enabled True
+				ixNet commit
+			Deputs "port interface:$interface"
+			}
+			if { $hInterface != "null"} {
+			} else {
+				set hInterface [ lindex $interface 0 ]
+			}
+			Deputs "hInterface:$hInterface"
+			set rb_interface  [ ixNet add $handle interface ]
+			ixNet setM $rb_interface \
+				-interfaces $interface \
+				-connectedToDut True \
+				-enabled True
+			ixNet commit
+			set rb_interface [ ixNet remapIds $rb_interface ]
+			Deputs "rb_interface:$rb_interface"  
 		}
-		
-		ixNet setM $hPort/protocols/ospf -enabled True -enableDrOrBdr True
-		ixNet commit
-		
-		set rb_interface [ ixNet getL $hPort interface ]
-	    puts "rb_interface is: $rb_interface"
-		array set interface [ list ]
-	}
+	}    
 	
 	
     method config { args } {}
+	method set_route { args } {}
 	method set_topo { args } {}
 	method unset_topo { args } {}
 	method advertise_topo {} {}
@@ -412,7 +450,7 @@ Deputs "Args:$args "
 				set options $value
 			}
 		   
-		     -router_dead_interval -
+		    -router_dead_interval -
 			-dead_interval {
 				set dead_interval $value
 			}
@@ -425,11 +463,30 @@ Deputs "Args:$args "
 		   -ipv6_addr {
 				 set ipv6_addr $value
 			 }
+			-graceful_restart {
+				set graceful_restart $value
+			}
+			-authentication {
+				set authentication $value
+			}
+			-md5_keyid {
+				set md5_keyid $value
+			}
+			-password {
+				set password $value
+			}
         }
     }
 	
 	ixNet setM $handle -enabled True
-	
+	if { [ info exists graceful_restart ] } {
+		if { graceful_restart } {
+			ixNet setA $handle -gracefulRestart true
+		} else {
+			ixNet setA $handle -gracefulRestart false
+		}
+		ixNet commit
+	}
 	if { [ info exists router_id ] } {
 		ixNet setA $handle -routerId $router_id
 		ixNet commit
@@ -442,17 +499,13 @@ Deputs "Args:$args "
 		} else {
 			error "area id setting error"
 		}
-		foreach int $rb_interface {
-			set id_hex [IP2Hex $area_id]			
-			set area_id [format %i 0x$id_hex]
-			ixNet setA $interface($int) $attri $area_id
-		}
+		set id_hex [IP2Hex $area_id]			
+		set area_id [format %i 0x$id_hex]
+		ixNet setA $interface $attri $area_id
 		ixNet commit
 	}
 	if { [ info exists hello_interval ] } {
-		foreach int $rb_interface {
-			ixNet setA $interface($int) -helloInterval $hello_interval
-		}
+		ixNet setA $interface -helloInterval $hello_interval	
 		ixNet commit
 	}
 	if { [ info exists if_cost ] } {
@@ -463,10 +516,7 @@ Deputs "Args:$args "
 		} else {
 			error "metric setting error"
 		}
-		
-		foreach int $rb_interface {
-			ixNet setA $interface($int) $attri $if_cost
-		}
+		ixNet setA $interface $attri $if_cost
 		ixNet commit
 	}
 	
@@ -493,85 +543,133 @@ Deputs "Args:$args "
 		} else {
 			error "network type setting error"
 		}
-		
-		foreach int $rb_interface {
-			ixNet setA $interface($int) $attri $network_type
-		}
+		ixNet setA $interface $attri $network_type
 		ixNet commit
 	}
 	
 	# v3 -routerOptions
 	# v2 -options
-	if { [ info exists options ] } {
-		 foreach int $rb_interface {
+	if { [ info exists options ] } { 
+		set options [split $options |]
 			 
-			 set options [split $options |]
-			 
-			 if {[string match *dcbit* $options]} {
-				 set dcbit 1
-			 } else {
-				 set dcbit 0
-			 }
-			 if {[string match *rbit* $options]} {
-				 set rbit 1
-			 } else {
-				 set rbit 0
-			 }
-			 if {[string match *nbit* $options]} {
-				 set nbit 1
-			 } else {
-				 set nbit 0
-			 }
-			 if {[string match *mcbit* $options]} {
-				 set mcbit 1
-			 } else {
-				 set mcbit 0
-			 }
-			 if {[string match *ebit* $options]} {
-				 set ebit 1
-			 } else {
-				 set ebit 0
-			 }
-			 if {[string match *v6bit* $options]} {
-				 set v6bit 1
-			 } else {
-				 set v6bit 0
-			 }
-			 set opt_val "00$dcbit$rbit$nbit$mcbit$ebit$v6bit"
-			 set opt_val [BinToDec $opt_val]
-#			 set opt_val [Int2Hex $opt_val]		
-			 ixNet setA $interface($int) -routerOptions $opt_val
-			 ixNet commit
-		 }
+		if {[string match *dcbit* $options]} {
+		set dcbit 1
+		} else {
+			set dcbit 0
+		}
+		if {[string match *rbit* $options]} {
+			set rbit 1
+		} else {
+			set rbit 0
+		}
+		if {[string match *nbit* $options]} {
+			set nbit 1
+		} else {
+			set nbit 0
+		}
+		if {[string match *mcbit* $options]} {
+			set mcbit 1
+		} else {
+			set mcbit 0
+		}
+		if {[string match *ebit* $options]} {
+			set ebit 1
+		} else {
+			set ebit 0
+		}
+		if {[string match *v6bit* $options]} {
+			set v6bit 1
+		} else {
+			set v6bit 0
+		}
+		set opt_val "00$dcbit$rbit$nbit$mcbit$ebit$v6bit"
+		set opt_val [BinToDec $opt_val]
+#		 set opt_val [Int2Hex $opt_val]		
+		ixNet setA $interface -routerOptions $opt_val
+		ixNet commit
 	}
 	
 	if { [ info exists dead_interval ] } {
-		foreach int $rb_interface {
-			ixNet setA $interface($int) -deadInterval $dead_interval
-		}
+		ixNet setA $interface -deadInterval $dead_interval
 		ixNet commit
 	}
 	
 	# v3 
 	# v2 -lsaRetransmitTime
 	if { [ info exists retransmit_interval ] } {
-		foreach int $rb_interface {
-			ixNet setA $interface($int) -lsaRetransmitTime $retransmit_interval
-		}
+		ixNet setA $interface -lsaRetransmitTime $retransmit_interval
 		ixNet commit
 	}
 	if { [ info exists priority ] } {
-		foreach int $rb_interface {
-			ixNet setA $interface($int) -priority $priority
-		}
+		ixNet setA $interface -priority $priority
 		ixNet commit
 	}
-
-	
+	if { [ info exists authentication ] } {
+		if { $authentication == "md5" } {
+			ixNet setM $handle -authenticationMethods MD5 
+		#		-authenticationPassword $md5_keyid
+        }
+		if { $authentication == "password" } {
+			ixNet setM $handle -authenticationMethods password \
+				-authenticationPassword $password
+        }
+	}
     return [GetStandardReturnHeader]
 	
 }
+body OspfSession::set_route { args } {
 
+    global errorInfo
+    global errNumber
+    set tag "body OspfSession::set_route [info script]"
+Deputs "----- TAG: $tag -----"
+
+#param collection
+Deputs "Args:$args "
+    foreach { key value } $args {
+        set key [string tolower $key]
+        switch -exact -- $key {
+            -route_block {
+            	set route_block $value
+            }
+			-origin {
+				set origin $value
+			}
+        }
+    }
+	
+	if { [ info exists route_block ] } {
+	
+		foreach rb $route_block {
+			set num 		[ $rb cget -num ]
+			set step 		[ $rb cget -step ]
+			set prefix_len 	[ $rb cget -prefix_len ]
+			set start 		[ $rb cget -start ]
+			set active      [ $rb cget -active]	
+			if { [lsearch $routeBlock(obj) $rb] == -1 } {
+			    set hRouteBlock [ ixNet add $handle routeRange ]
+				ixNet commit
+				set hRouteBlock [ ixNet remapIds $hRouteBlock ]
+				set routeBlock($rb,handle) $hRouteBlock
+				lappend routeBlock(obj) $rb
+			} else {
+			    set hRouteBlock $routeBlock($rb,handle)
+			}			
+		puts "hRouteBlock: $hRouteBlock"	
+		puts "$num; $start; $prefix_len; $step"
+			ixNet setM $hRouteBlock \
+				-numOfRoutes $num \
+				-origin $origin \
+				-mask $prefix_len \
+				-enabled $active
+			ixNet commit
+		}
+	}
+	
+    return [GetStandardReturnHeader]
+	
+
+}
 body SimulatedSummaryRoute::config { args } {
     global errorInfo
     global errNumber

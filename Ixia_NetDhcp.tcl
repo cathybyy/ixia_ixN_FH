@@ -270,6 +270,8 @@ body DhcpHost::config { args } {
     set tag "body DhcpHost::config [info script]"
 Deputs "----- TAG: $tag -----"
 #disable the interface
+    
+	set use_broadcast_flag 0
 
     eval { chain } $args
 	
@@ -277,8 +279,7 @@ Deputs "----- TAG: $tag -----"
 Deputs "Args:$args "
     foreach { key value } $args {
         set key [string tolower $key]
-        switch -exact -- $key {
-            
+        switch -exact -- $key {            
             -count {
                 if { [ string is integer $value ] && ( $value <= 65535 ) } {
                     set count $value
@@ -314,6 +315,7 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }
             }
+			-relay_agent_pool_ip -
             -relay_pool_ipv4_addr -
             -relay_agent_ipv4_addr {
                 if { [ IsIPv4Address $value ] } {
@@ -323,6 +325,7 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }                
             }
+			-relay_agent_pool_ip_step -
             -relay_pool_ipv4_addr_step -
             -relay_agent_ipv4_addr_step {
                 if { [ IsIPv4Address $value ] } {
@@ -331,22 +334,20 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }                
             }
+			-relay_agent_server_ip -
             -relay_server_ipv4_addr {
                 if { [ IsIPv4Address $value ] } {
                     set relay_server_ipv4_addr $value
                 } else {
                     error "$errNumber(1) key:$key value:$value"
                 }                
-            }
-		   
+            }		   
 		   -relay_client_mac_addr_start {
 			  
-		   }
-		   
+		   }		   
 		   -relay_client_mac_addr_step {
 			   
-		   }
-		   
+		   }		   
             -remote_id {
                 set remote_id $value
             }
@@ -366,7 +367,6 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }
             }
-
             -suggest_lease {
                 if { [ string is integer $value ] && ( $value > 0 ) } {
                     set suggest_lease $value
@@ -374,11 +374,11 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }
             }
-		   
+		  -broadcast_flag - 
 		  -use_broadcast_flag {
 			  set use_broadcast_flag $value
-		  }
-		   
+		  }	
+          -relay_agent_server_ip_step -		  
 		  -relay_server_ipv4_addr_step {
 			  set relay_server_ipv4_addr_step $value
 		  }
@@ -2197,6 +2197,7 @@ Deputs "----- TAG: $tag -----"
 Deputs "handle:$handle"
 
 	eval chain $args
+	set pool_ip_pfx 16
 
 #param collection
 Deputs "Args:$args "
@@ -2206,6 +2207,7 @@ Deputs "Args:$args "
             -count {
             	set count $value
             }
+			-pool_address_start -
             -pool_ip_start {
                 # if { [ IsIPv4Address $value ] } {
                     set pool_ip_start $value
@@ -2220,6 +2222,10 @@ Deputs "Args:$args "
                     # error "$errNumber(1) key:$key value:$value"
                 # }
             }
+			-pool_address_step {
+			     set pool_address_step $value
+			}
+			-pool_address_count -
             -pool_ip_count {
                 if { [ string is integer $value ] } {
                     set pool_ip_count $value
@@ -2228,7 +2234,7 @@ Deputs "Args:$args "
                 }
             }
             -lease_time -
-		  -preferred_life_time {
+		    -preferred_life_time {
                 if { [ string is integer $value ] } {
                     set lease_time $value
                 } else {
@@ -2237,7 +2243,7 @@ Deputs "Args:$args "
             }
             -max_lease_time -
 			-max_allowed_lease_time -
-		     -valid_life_time {
+		    -valid_life_time {
                 if { [ string is integer $value ] } {
                     set max_lease_time $value
                 } else {
@@ -2259,6 +2265,9 @@ Deputs "Args:$args "
                 # } else {
                     # error "$errNumber(1) key:$key value:$value"
                 # }
+			}
+			-ipv4_addr_step {
+			     set ipv4_prefix_len [ GetStepPrefixlen $value ]
 			}
 			-ipv4_gw -
 			-ipv6_gw {
@@ -2324,6 +2333,9 @@ Deputs Step30
     if { [ info exists pool_ip_pfx ] } {
         ixNet setA $range/dhcpServerRange -ipPrefix $pool_ip_pfx
     }
+	if { [ info exists pool_address_step ] } {
+	    ixNet setA $range/dhcpServerRange -ipAddressIncrement $pool_address_step
+	}
     if { [ info exists pool_ip_count ] } {
         ixNet setA $range/dhcpServerRange -count $pool_ip_count
     }

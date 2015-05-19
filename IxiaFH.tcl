@@ -9,7 +9,6 @@ set FHreleaseVersion 2.2
 #       1. Create traffic part
 # Version 2.0 
 #       1. Create protocol part
-
 set FHlogname ""
 
 set fh_testname ""
@@ -23,8 +22,8 @@ if { [ catch {
 	puts "load package fail...$err"
 } 
 package req IxiaNet
-IxDebugOff
-IxDebugCmdOff
+IxDebugOn
+IxDebugCmdOn
 
 
 set fhportlist [list]
@@ -32,6 +31,8 @@ set savecapport [list]
 set headindex 0
 set pppoeclientlist [list]
 set pppoeserverlist [list]
+set trafficinfo {}
+set loadflag 0
 
 namespace eval IxiaFH {
    namespace export *
@@ -39,7 +40,7 @@ namespace eval IxiaFH {
 } ;
 
 namespace eval IxiaFH {
-   
+
 	proc Logto { args } {
 	  
 	  
@@ -62,6 +63,7 @@ namespace eval IxiaFH {
 				
 			}
             set FHlogname [eval file join $sp $FHlogfile]
+			puts $FHlogname
         } else {
 		    set currDir [file dirname [info script]]
 			
@@ -121,6 +123,7 @@ namespace eval IxiaFH {
 		
 		Logto -info "----- TAG: $tag -----"
         global errNumber
+		global loadflag
 	   
 		foreach { key value } $args {
 			set key [string tolower $key]
@@ -138,6 +141,7 @@ namespace eval IxiaFH {
 		
 		if { [ info exists configfile ] } {
 			loadconfig $configfile
+			set loadflag 1
 			
 		} else {
 		   error "$errNumber(2) key:configfile "
@@ -160,6 +164,7 @@ namespace eval IxiaFH {
 		set tag "port_reserve "
 		Logto -info "----- TAG: $tag -----"
 		set offline 0
+		global loadflag
         global errNumber
 		global portlist
 		global trafficlist
@@ -175,6 +180,9 @@ namespace eval IxiaFH {
 		global deviceList
         global pppoeclientlist 
         global pppoeserverlist 
+		#trafficinfo use to create flow in same item
+		global trafficinfo
+		
 		
         set pppoeclientlist ""
         set pppoeserverlist ""
@@ -211,7 +219,11 @@ namespace eval IxiaFH {
 						set port_handle [lindex $portlist $index]
 		Logto -info "port_handle: $port_handle"				
 						set portn [lindex $portnamelist $index]
-						Port $portn $hw_id NULL $port_handle
+                        if { [$portn isa Port] } {
+                            $portn Connect $hw_id NULL 0 $port_handle
+                        } else {
+						    Port $portn $hw_id NULL $port_handle
+                        }
 						incr index
 					} else {
 						error "$errNumber(2) :hw_id_org:$hw_id_org"
@@ -227,13 +239,14 @@ namespace eval IxiaFH {
 					incr index
 				}
 			}
-            
-            foreach tname $trafficnamelist tobj $trafficlist tport $traffictxportlist {
-                    Traffic $tname $tport $tobj
-                }
+            if { $loadflag } {
+				foreach tname $trafficnamelist tobj $trafficlist tport $traffictxportlist {
+						Traffic $tname $tport $tobj
+					}
 
-            foreach fname $flownamelist fobj $flowlist tport $tportlist tobj $flowitemlist {
-				Flow $fname $tport $fobj $tobj
+				foreach fname $flownamelist fobj $flowlist tport $tportlist tobj $flowitemlist {
+					Flow $fname $tport $fobj $tobj
+				}
 			}
 		} else {
 			error "$errNumber(2) :-ports"
@@ -244,7 +257,85 @@ namespace eval IxiaFH {
 		# after 1000
 		
 	}
+	proc port_create {args} {
+		set tag "port_create "
+		Logto -info "----- TAG: $tag -----"
 
+		set port_type ethernetcooper
+        global errNumber
+		global portlist
+		global portnamelist		
+		global fhportlist
+		 
+        set len [llength $args]
+		puts $len
+		set arg [lindex $args 0]
+		set flag [llength $arg]
+		puts $flag 
+		if {$flag==1} {
+		    set len 1
+		    set arg $args
+		}
+		puts $arg
+		for {set i 0} {$i < $len} {incr i} {
+		    foreach { key value } $arg {
+			    set key [string tolower $key]
+			    switch -exact -- $key {
+				    -name {
+					    set name $value
+				    }
+					-port_location {
+					    set port_location $value
+				    }
+				    -port_type {
+					    set value [ string tolower $value ]
+					    switch $value {
+						    ethernet100gigfiber -
+							ethernet10gigfiber -
+							ethernet40gigfiber -
+							ethernetfiber {
+							    set port_type "fiber"
+							}
+							ethernet10gigcopper -
+							ethernetcopper {
+							    set port_type "copper"
+							}
+						
+						}
+					    
+				    } 
+				    default {
+					    error "$errNumber(3) key:$key value:$value"
+				    }
+			    }
+		    }
+		    set index 0
+            set portn $name
+			#set portn [::IxiaFH::nstype $name]
+		    
+		    if {[ info exists port_location ]} {	
+			
+			
+				if {[regexp {^//(.+)} $port_location b hw_id] == 1} {				
+				Logto -info "hw_id:$hw_id"			
+					Port $portn $hw_id $port_type 						   
+				} else {
+					error "$errNumber(2) :hw_id:$hw_id"
+				}				    
+			} else {
+			puts "aaaa"
+			Logto -info "offline :$portn"		
+					Port $portn NULL NULL NULL 1
+			}
+            lappend portlist  [$name cget -handle]
+		    lappend portnamelist $name
+	        set arg [lindex $args [expr $i+1]]
+	    }
+		# set root [ixNet getRoot]
+		# ixNet exec apply $root/traffic
+		# after 1000
+		
+	}
 	proc port_config { args } {
 		set tag "port_config "
 		Logto -info "----- TAG: $tag -----"
@@ -846,7 +937,33 @@ namespace eval IxiaFH {
 	proc clean_up {} {
 		set tag "clean_up "
 		Logto -info "----- TAG: $tag -----"
+		global portlist
+		global trafficlist
+		global portnamelist
+		global trafficnamelist
+		global tportlist
+        global flownamelist
+        global flowlist
+        global flowitemlist
+        global traffictxportlist
+		
+		global fhportlist
+		global deviceList
+		
+		set portlist ""
+		set trafficlist ""
+		set portnamelist ""
+		set trafficnamelist ""
+		set tportlist ""
+        set flownamelist ""
+        set flowlist ""
+        set flowitemlist ""
+        set traffictxportlist ""
+		
+		set fhportlist ""
+		set deviceList ""
 		Tester::cleanup -release_port 1
+		
 		return 1
 	}
 
@@ -925,382 +1042,1156 @@ namespace eval IxiaFH {
 		}
 		
 	}
-
-	proc traffic_config { args } {
-		set tag "traffic_config "
+	proc traffic_create {args} {
+		set tag "traffic_create "
 		Logto -info "----- TAG: $tag -----"
-		
 		global headindex
         global errNumber
-		 
-		set headlist {}
-		foreach { key value } $args {
-			set key [string tolower $key]
-			switch -exact -- $key {
-				-streamblock {
-					incr headindex
-					set streamobj $value
-					EtherHdr ${streamobj}EtherH${headindex} 
-					${streamobj}EtherH${headindex} ChangeType MOD				
-					SingleVlanHdr ${streamobj}VlanH${headindex}
-                    ${streamobj}VlanH${headindex} SetProtocol vlan2					
-					${streamobj}VlanH${headindex} ChangeType MOD
-                    SingleVlanHdr ${streamobj}VlanH2${headindex} 
-					${streamobj}VlanH2${headindex} ChangeType MOD					
-					Ipv4Hdr ${streamobj}ipv4H${headindex}
-					${streamobj}ipv4H${headindex} ChangeType MOD
-                    UdpHdr ${streamobj}udpH${headindex}
-                    ${streamobj}udpH${headindex} ChangeType MOD
-                    TcpHdr ${streamobj}tcpH${headindex}
-                    ${streamobj}tcpH${headindex} ChangeType MOD
-									
-					
-				}
-				-framesize {
-					set framesize $value
-					$streamobj config -frame_len $value
-					
-				}
-				-srcmac {
-					set srcmac [MacTrans $value]					
-					set srcmac_count 1
-					set srcmac_type incr
-					set srcmac_step "00:00:00:00:00:01"
-					
-					if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
-					} else { 
-						lappend headlist ${streamobj}EtherH${headindex}
+		global fhportlist
+		global trafficnamelist
+        global trafficlist
+        global flownamelist 
+        global flowlist
+		global trafficinfo
+        set len [llength $args]
+		puts $len
+		set arg [lindex $args 0]
+		set flag [llength $arg]
+		puts $flag
+		if {$flag==1} {
+		    set len 1
+		    set arg $args
+		}
+		puts $arg
+		for {set i 0} {$i < $len} {incr i} {
+		    set flag 0
+		    foreach { key value } $arg {
+			    set key [string tolower $key]
+			    switch -exact -- $key {
+				    -name {
+					    set name $value
+				    }
+					-port {
+					    set port $value
+				    }
+					-rxport {
+					    set rxportlist $value
 					}
-				}
-				-srcmac_count {
-					set srcmac_count $value					
-				}
-				-srcmac_type {
-					if {$value == "increment" } {
-					    set srcmac_type incr
-					}
-					if {$value == "decrement" } {
-					    set srcmac_type decr
-					}
-
-				}
-				-srcmac_step {
-					
-					set srcmac_step [MacTrans $value]
-
-				}
-				-srcmac_mask {
-					
-					set srcmac_mask $value
-				}
-				-dstmac {
-					set dstmac [MacTrans $value]
-					
-					set dstmac_count 1
-					set dstmac_type incr
-					set dstmac_step "00:00:00:00:00:01"
-					if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
-					} else { 
-						lappend headlist ${streamobj}EtherH${headindex}
-					}
-				}
-				-dstmac_count {
-					set dstmac_count $value 	
-				}
-				-dstmac_type {                
-
-					if {$value == "increment" } {
-					    set dstmac_type incr
-					}
-					if {$value == "decrement" } {
-					    set dstmac_type decr
-					}
-				}
-				-dstmac_step {
-					
-					set dstmac_step [MacTrans $value]
-				}
-				-dstmac_mask {
-					
-					set dstmac_mask $value
-				}
-				-srcip {
-					set srcip $value
-					set srcip_count 1
-					set srcip_type incr
-					set srcip_step "0.0.0.0"
-
-					if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
-					} else { 
-						lappend headlist ${streamobj}ipv4H${headindex}
-					}
-				}
-				-srcip_count {
-					set srcip_count $value 
-
-				}
-				-srcip_type {
+				    default {
+					    set flag 1
+				    }
+			    }
+		    }
+			set portn [::IxiaFH::nstype $port]
+			set tname [::IxiaFH::nstype $name]	
+		
+            if { [info exists rxportlist] } {
+			    set rxportlist [::IxiaFH::nstype $rxportlist]
+			    if {[llength $rxportlist] == 1} {
+				  set rxportlist [ lindex $rxportlist 0 ]
+				  if { $trafficinfo== {} } {
+				
+				    Flow $tname $portn 
+					$tname config -rcv_ports $rxportlist 
+					set thandle [$tname cget -hTraffic]
+					set fhandle [$tname cget -handle]
+					lappend trafficinfo [list $thandle $portn $rxportlist ]
+					lappend flownamelist $tname
+					lappend flowlist $fhandle 
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
+						 -dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+					traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
+						 -dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+				  } else {
+				    set thandle ""
+				    foreach tinfo $trafficinfo {
+					Deputs $tinfo
+					    if {[lsearch $tinfo $portn] != -1 && [lsearch $tinfo $rxportlist] != -1} {
 						
-					if {$value == "increment" } {
-					    set srcip_type incr
+						    set thandle [lindex $tinfo 0]
+							break
+						}
 					}
-					if {$value == "decrement" } {
-					    set srcip_type decr
+					if { $thandle == "" } {
+				
+					   Flow $tname $portn 
+					   $tname config -rcv_ports $rxportlist
+					   set thandle [$tname cget -hTraffic]
+					   set fhandle [$tname cget -handle]
+					   lappend trafficinfo [list $thandle $portn $rxportlist ] 
+					   lappend flownamelist $tname
+					   lappend flowlist $fhandle 
+					    traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
+							-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+						traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
+							-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+					} else {
+				
+					   Flow $tname $portn "NULL" $thandle 
+					   # $tname config -rcv_ports $rxportlist
+					   set fhandle [$tname cget -handle]
+					   lappend flownamelist $tname
+					   lappend flowlist $fhandle
+					   	traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
+							-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+						traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
+							-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
 					}
-				}
-				-srcip_step {					
-					set srcip_step $value
-				}
-				-srcip_mask {
+				  }
+				
+				} else {
+					Traffic $tname $portn 
 					
-					set srcip_mask $value
-				}
-				-dstip {
-					set dstip $value
-					set dstip_count 1
-					set dstip_type incr
-					set dstip_step "0.0.0.0"
-					if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
-					} else { 
-						lappend headlist ${streamobj}ipv4H${headindex}
+					$tname config -traffic_type raw  -rcv_ports $rxportlist
+					# #$tname config -traffic_type raw  -dst $rxportlist
+					lappend trafficnamelist $tname
+					lappend trafficlist [$tname cget -handle]
+					set thandle [$tname cget -handle]
+					Deputs "thandle:$thandle"
+					foreach fhandle [ ixNet getL $thandle highLevelStream ] {
+					Deputs "fhandle: $fhandle"
+					lappend flownamelist [ixNet getA $fhandle -name]
+					Deputs "fname: $flownamelist"
+					lappend flowlist $fhandle
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
+						 -dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+					traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
+						 -dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
 					}
+		   
 				}
-				-dstip_count {
-					set dstip_count $value
-				}
-				-dstip_type {
-										
-					if {$value == "increment" } {
-					    set dstip_type incr
-					}
-					if {$value == "decrement" } {
-					    set dstip_type decr
-					}
-
-				}
-				-dstip_step {
-					
-					set dstip_step $value
-
-				}
-				-dstip_mask {
-					
-					set dstip_mask $value
-				}
-				-cvlanpri {
-					set cvlanpri $value
-					set cvlanpri_count 1
-
-					if { [lsearch $headlist ${streamobj}VlanH${headindex}] != -1 } {
-					} else { 
-						lappend headlist ${streamobj}VlanH${headindex}
-					}
-				}
-				-cvlanpri_count {
-					set cvlanpri_count $value 
-				}
-				-cvlanpri_type {
-					
-					set cvlanpri_type $value
-					if {$value == "increment" } {
-					    set cvlanpri_type Incrementing
-					}
-					if {$value == "decrement" } {
-					    set cvlanpri_type Decrementing
-					}
-					
-				}
-				-cvlanpri_step {
-					
-					set cvlanpri_step $value 
-				}
-				-cvlanid {
-					set cvlanid $value
-					set cvlanid_count 1
-					set cvlanid_step 1
-
-					if { [lsearch $headlist ${streamobj}VlanH${headindex}] != -1 } {
-					} else { 
-						lappend headlist ${streamobj}VlanH${headindex}
-					}
-				}
-				-cvlanid_count {
-					set cvlanid_count $value
-
-				}
-				-cvlanid_type {
-					
-					set cvlanid_type $value
-				}
-				-cvlanid_step {
-					
-					set cvlanid_step $value
-				}
-				-svlanpri {
-					set svlanpri $value
-					set svlanpri_count 1
-
-					if { [lsearch $headlist ${streamobj}VlanH2${headindex}] != -1 } {
-					} else { 
-						lappend headlist ${streamobj}VlanH2${headindex}
-					}
-				}
-				-svlanpri_count {
-					set svlanpri_count $value
-					
-				}
-				-svlanpri_type {
-					
-					set svlanpri_type $value
-				}
-				-svlanpri_step {
-					
-					set svlanpri_step $value
-				}
-				-svlanid {
-					set svlanid $value
-					set svlanid_count 1
-					set svlanid_step 1
-
-					if { [lsearch $headlist ${streamobj}VlanH2${headindex}] != -1 } {
-					} else { 
-						lappend headlist ${streamobj}VlanH2${headindex}
-					}
-				}
-				-svlanid_count {
-					set svlanid_count $value
-
-				}
-				-svlanid_type {
-					
-					set svlanid_type $value
-				}
-				-svlanid_step {
-					
-					set svlanid_step $value
-				}
-				-ethtype {
-					set EType [ list internet_ip ipv6 arp  rarp pppoe_session ppp pppoe_dis ]
-                    set ETypeVal [ list "0800" "86dd" "0806"  "8035" "8864" "880b" "8863" ]
-                    set eindex [lsearch -exact $EType $value]
-                    if {$eindex == -1 } {
-                        error "No this ethtype $value supported"
-                    } else {
-					   set ethtype [lindex $ETypeVal $eindex]
-                    }
-
-					${streamobj}EtherH${headindex} config -type $ethtype
-					if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
-					} else { 
-						lappend headlist ${streamobj}EtherH${headindex}
-					}
-				}
-				-ipprotocoltype {
-					
-					set ipprotocoltype $value
-
-					${streamobj}ipv4H${headindex} config -protocol_type $ipprotocoltype
-					if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
-					} else { 
-						lappend headlist ${streamobj}ipv4H${headindex}
-					}
-				}
-				-iptosdscp {
-					
-					set iptosdscp $value
-
-					${streamobj}ipv4H${headindex} config -precedence $value
-					if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
-					} else { 
-						lappend headlist ${streamobj}ipv4H${headindex}
-					}
-				}
-				-udpsrcport {							
-                    
-                    ${streamobj}udpH${headindex} config -src_port $value
-                    if { [lsearch $headlist ${streamobj}udpH${headindex}] != -1} {
-                    } else { 
-                        lappend headlist ${streamobj}udpH${headindex}
-                    }		
-				}
-                -tcpsrcport {
-
-                    ${streamobj}tcpH${headindex} config -src_port $value
-                    if { [lsearch $headlist ${streamobj}tcpH${headindex}] != -1} {
-                    } else { 
-                        lappend headlist ${streamobj}tcpH${headindex}
-                    }	
-				}
-				-udpdstport {
-
-                    ${streamobj}udpH${headindex} config -dst_port $value
-                    if { [lsearch $headlist ${streamobj}udpH${headindex}] != -1} {
-                    } else { 
-                        lappend headlist ${streamobj}udpH${headindex}
-                    }	
-				}
-                -tcpdstport {
-        
-                    ${streamobj}tcpH${headindex} config -dst_port $value
-                    if { [lsearch $headlist ${streamobj}tcpH${headindex}] != -1} {
-                    } else { 
-                        lappend headlist ${streamobj}tcpH${headindex}
-                    }	
-				}
-				-mplsid {
-					SingleMplsHdr ${streamobj}mplsH${headindex}
-                    ${streamobj}mplsH${headindex} ChangeType MOD
-					set mplsid $value
-					${streamobj}mplsH${headindex} config -label_id $value
-					lappend headlist ${streamobj}mplsH${headindex}
-				}
-				default {
-					error "$errNumber(3) key:$key value:$value"
-				}
+			} else {
+			    Traffic $tname $portn 
+				lappend trafficnamelist $tname
+                lappend trafficlist [$tname cget -handle]
+				traffic_config -name $name -srcmac 00:00:94:00:00:02 -srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 \
+					-dstmac 00:00:01:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
+				traffic_config -name $name -srcip 192.85.1.2  -srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 \
+					-dstip 192.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+			}		
+			 			
+		    after 15000 
+            if {$flag == 1 } {		
+			    eval traffic_config $arg
 			}
-		}
-        if {[info exists srcmac]} {
-		    ${streamobj}EtherH${headindex} config -src $srcmac -src_num $srcmac_count \
-			    -src_range_mode $srcmac_type  -src_mac_step $srcmac_step
-		}
-		if {[info exists dstmac]} {
-		    ${streamobj}EtherH${headindex} config -dst $dstmac -dst_num $dstmac_count \
-			    -dst_range_mode $dstmac_type  -dst_mac_step $dstmac_step
-		}
-		if {[info exists srcip]} {
-		    ${streamobj}ipv4H${headindex} config -src $srcip -src_num $srcip_count \
-			    -src_range_mode $srcip_type  -src_step $srcip_step
-		    
-		}
-		if {[info exists dstip]} {		    
-			${streamobj}ipv4H${headindex} config -dst $dstip -dst_num $dstip_count \
-			    -dst_range_mode $dstip_type  -dst_step $dstip_step
-		}
-		if {[info exists cvlanpri]} {		    
-		    ${streamobj}VlanH${headindex} config -pri1 $cvlanpri -pri1_num $cvlanpri_count
-		}
-		if {[info exists cvlanid]} {		    
-		    ${streamobj}VlanH${headindex} config -id1 $cvlanid -id1_num $cvlanid_count \
-			        -id1_step $cvlanid_step 
-		}
-		if {[info exists svlanpri]} {		    
-		    ${streamobj}VlanH2${headindex} config -pri1 $svlanpri -pri1_num $svlanpri_count
-		}
-		if {[info exists svlanid]} {		    
-		    ${streamobj}VlanH2${headindex} config -id1 $svlanid -id1_num $svlanid_count \
-			        -id1_step $svlanid_step 
-		}
-		
-
-        set headlist [::IxiaFH::nstype $headlist]
-		$streamobj config -pdu $headlist
-		
+	        set arg [lindex $args [expr $i+1]]
+	    }
 		# set root [ixNet getRoot]
 		# ixNet exec apply $root/traffic
 		# after 1000
-				   
+		
 	}
+	proc device_create {args} {
+		set tag "device_create "
+		Logto -info "----- TAG: $tag -----"
+        global errNumber
+        set len [llength $args]
+		puts $len
+		set arg [lindex $args 0]
+		set flag [llength $arg]
+		puts $flag
+		if {$flag == 1} {
+		    set len 1
+		    set arg $args
+		}
+		puts $arg
+		puts "len: $len"
+		for {set i 0} {$i < $len} { incr i } {
+		    set flag 0
+		    foreach { key value } $arg {
+			    set key [string tolower $key]
+			    switch -exact -- $key {
+				    -name {
+					    set name $value
+				    }
+					-obj_type {
+						set obj_type $value
+					}
+					-port {
+					    set port $value
+						set portn [::IxiaFH::nstype $port]
+				    }
+					default {
+					   set flag 1
+					}
+			    }
+		    }
+			set lastName [ lindex [split $name "."] end ]
+			set hostName [ lindex [split $name "."] 0   ]
+			set lastName [ ::IxiaFH::nstype $lastName   ]
+			set hostName [ ::IxiaFH::nstype $hostName   ]
+			if { [info exists portn] == 0 } {			 
+			   set portn [$hostName cget -portObj]
+			}
+			set obj_type [ string tolower $obj_type]
+            switch -exact -- $obj_type {
+			    device {
+				    Host $hostName $portn
+				}
+				device.ospf {
+				    set ospfInt     [ $hostName cget -handle    ]
+					puts "ospfInt: $ospfInt"
+					eval OspfSession $lastName $portn "null" $ospfInt  
+					$lastName config -network_type broadcast     
+				}
+				device.ospf.netsummarylsa {
+					set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -active 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_lsa 1	
+					eval device_config $args
+				}
+				device.ospf.externalsa {
+					set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -active 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_lsa 1	
+					eval device_config $args
+				}
+				device.isis {
+					set isisInt     [ $hostName cget -handle    ]
+					puts "isisInt: $isisInt"
+					eval IsisSession $lastName $portn "null" $isisInt
+					$lastName config -network_type broadcast -metric 1 -hello_interval 10 -dead_interval 30 -max_lspsize 1492 -lsp_refresh 900 
+				}
+				device.isis.isis_ipv4route {
+					set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -active 1 -route_type internal -route_count 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_route 1
+					eval device_config $args
+				}
+				device.isis.isis_ipv6route {
+					set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -active 1 -route_type internal -route_count 1 -start_ip 2001::0 -prefix_len 64 -metric_route 1
+					eval device_config $args
+				}
+				device.bgp {				 				
+					set bgpInt     [ $hostName cget -handle    ]
+					set bgpID      [ $hostName cget -ipv4Addr  ]										
+				    BgpSession $lastName $portn "null" $bgpInt
+					eval $lastName config  -bgp_id $bgpID -as_num 1 \
+					    -bgp_type "ebgp" -hold_time 10
+				}
+				device.bgp.bgp_ipv4route {
+				    set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -start_ip "192.0.1.0" -prefix_len 24
+				}
+				device.bgp.bgp_ipv6route {
+				    set UpDevice [ lindex [split $name "."] 1 ]
+					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
+					puts "UpDevice:$UpDevice"
+				    RouteBlock $lastName 
+					$lastName SetUpDevice $UpDevice
+					$lastName config -start_ip "2000::1" -prefix_len 64
+				}
+				device.dhcpv4_client {
+				    Dhcpv4Host $lastName $portn
+				}
+				device.dhcpv4_server {
+				    set serverIp      [ $hostName cget -ipv4Addr  ]
+					set serverIpStep  [ $hostName cget -ipv4Step  ]
+					set serverIpCount  [ $hostName cget -ipv4Count  ]
+				    DhcpServer $lastName $portn
+					if { $serverIp != "" } {
+					    $lastName config -ipv4_addr $serverIp \
+						    -ipv4_addr_step $serverIpStep \
+							-count $serverIpCount \
+							-pool_address_start "192.85.1.15"  \
+							-pool_address_step "0.0.0.1"  \
+							-pool_address_count 248
+					}
+				}
+				device.dhcpv4_relay_agent {
+				    Dhcpv4Host $lastName $portn
+					$lastName config -enable_relay_agent 1 \
+					    -relay_agent_server_ip "20.0.0.1"  \
+						-relay_agent_server_ip_step "0.0.1.0"  \
+						-relay_agent_pool_ip "20.0.0.100"   \
+						-relay_agent_pool_ip_step "0.0.0.1"  \
+                        -broadcast_flag 0						
+										
+				}
+				device.pppoe_client {
+				    PppoeHost $lastName $portn
+					$lastName config -authen_mode "none" \
+					    -username "fiberhome"  \
+						-passwork "fiberhome"
+				}
+				device.pppoe_server {
+				    set pppoeIp     [ $hostName cget -ipv4Addr    ]	
+				    Pppoev4Server $lastName $portn
+					$lastName config -authen_mode "none"  \
+					    -username "fiberhome"   \
+						-passwork "fiberhome"   \
+						-ac_name  "instument"   \
+						-server_ip $pppoeIp  \
+						-pppoe_ipv4_address_start "192.0.1.0" \
+						-pppoe_ipv4_address_step  "0.0.0.1"    \
+						-pppoe_ipv4_address_count 1
+						
+				}
+				device.igmp {
+				    set igmpInt     [ $hostName cget -handle    ]										
+				    IgmpHost $lastName $portn "null" $igmpInt
+					MulticastGroup ${lastName}_group 
+					${lastName}_group SetUpDevice $lastName
+					${lastName}_group config -group_num 1 \
+					    -group_start_ip "225.0.0.1" \
+						-group_ip_step "0.0.0.1"
+					$lastName join_group -group ${lastName}_group
+					
+				}
+				device.igmp_querier {
+				    set igmpInt     [ $hostName cget -handle    ]										
+				    IgmpQuerier $lastName $portn "null" $igmpInt
+					
+					
+				}
+            }
+			if { $flag } {
+			    device_config  $arg
+			}		
+			
+			
+	        set arg [lindex $args [expr $i+1]]
+			puts "i:$i"
+	    }
+		# set root [ixNet getRoot]
+		# ixNet exec apply $root/traffic
+		# after 1000
+		
+	}
+	
+	proc device_config { args } {
+		set tag "device_config "
+		Logto -info "----- TAG: $tag -----"
+        global errNumber
+        set len [llength $args]
+		puts $len
+		set arg [lindex $args 0]
+		set flag [llength $arg]
+		puts $flag
+		if { $flag == 1 } {
+		    set len 1
+		    set arg $args
+		}
+		puts $arg
+		for {set j 0} { $j < $len } { incr j } {
+		    set args_value ""
+			set obj_name ""
+		    foreach { key value } $arg {
+			    set key [string tolower $key]
+			    switch -exact -- $key {
+				    -obj_name {
+					    set obj_name $value
+					}
+				    -name {
+					    set name [lindex [split $value "."] end]
+						
+				    }
+					-obj_type {
+						set obj_type $value
+					}
+					-args_value_pairs {
+					    set args_value $value
+                        
+				    }					
+			    }
+		    }
+			
+			if { $args_value != "" && $obj_name != "" } {
+			    set devicelist   [ split $obj_name  _ ]
+				set portname     [ lindex $devicelist 0 ]
+				set protocoltype [ lindex $devicelist 1 ]
+				set EPType { dhcp pppoe igmp dhcpserver bgp isis ospf}
+				set protocoltype [string tolower $obj_type]
+				foreach ptype $EPType {
+					if { [regexp ^$ptype.* $protocoltype] } {               
+						set protocoltype $ptype
+						Logto -info "protocol type $ptype"
+						break
+					}
+					
+				}
+				if { $protocoltype == "bgp" || $protocoltype == "isis" || $protocoltype == "ospf" ||$protocoltype == "igmp"} {
+					protocol_handle  -device $device -protocoltype $protocoltype
+				} else {
+				
+					access_protocol_handle -port $portname -device $obj_name -protocoltype $protocoltype 
+				}
+				foreach { key value } $args_value {
+					set key [string tolower $key]
+					switch -exact -- $key {
+						-src_mac {
+							$obj_name config -mac_addr $value
+								
+						}
+						-dst_mac {					                       
+						}
+						-vlan {
+							$obj_name config -vlan_id1 $value                        
+						}
+						-src_ip {
+							if {$protocoltype == "igmp" } {
+								$obj_name config -ipaddr $value
+							}                    
+						}
+						-gateway_ip {
+													
+						}
+						-ospf_area_id {
+							$obj_name config  -area_id $value
+								
+						}
+						-ospf_network_type {
+							$obj_name config  -network_type $value
+								
+						}
+						-isis_system_id {
+							$obj_name config  -system_id $value
+								
+						}
+						-isis_level {
+							if { $value == 0 } {
+								set value "level2"
+							} elseif { $value == 1 } {
+								set value "level1"
+							} elseif { $value == 2 } {
+								set value "level1Level2"
+							}
+							$obj_name config  -level_type $value
+								
+						}
+						-isis_network_type {
+							$obj_name config  -network_type $value
+								
+						}
+						-isis_metric_mode {
+							$obj_name config  -metric $value
+								
+						}
+						-bgp_mode {
+							if { $value == 0 } {
+								set value "external"
+							} elseif { $value == 1 } {
+								set value "internal"
+							}
+							$obj_name config  -type $value
+								
+						}
+						-bgp_dut_as {
+							$obj_name config  -dut_as $value
+								
+						}
+						-bgp_local_as {
+							$obj_name config  -as $value
+								
+						}
+						-dhcp_pool_address_start {
+							$obj_name config  -pool_ip_start $value
+								
+						}
+						-dhcp_pool_host_address_start {
+							$obj_name config  -pool_ip_pfx $value
+								
+						}
+						-dhcp_pool_address_count {
+							$obj_name config  -pool_ip_count $value
+								
+						}
+						-dhcp_enable_broadcast_flag {
+							$obj_name config  -use_broadcast_flag $value
+								
+						}
+						-pppoe_auth {
+							$obj_name config  -authentication $value
+								
+						}
+						-pppoe_usename {
+							$obj_name config  -user_name $value
+								
+						}
+						-pppoe_password {
+							$obj_name config  -password $value
+								
+						}
+						-multicast_version {
+							$obj_name config  -version $value
+								
+						}
+						-igmp_start_group_ip {
+							$obj_name config  -ipaddr $value
+								
+						} 
+						-igmp_group_step {
+							$obj_name config  -ipaddr_step $value
+								
+						}
+						-igmp_group_num {
+							$obj_name config  -count $value
+								
+						} 
+						-pim_mode {
+							$obj_name config  -pim_mode $value
+								
+						}
+						-pim_role {
+							$obj_name config  -pim_role $value
+								
+						}                
+					}
+				}
+			} else {
+					
+				set dname [::IxiaFH::nstype $name]
+				set obj_type [ string tolower $obj_type]
+				switch -exact -- $obj_type {
+					device {
+						eval $dname config $arg						
+					}
+					ospf -
+					device.ospf {						
+						eval $dname config $arg
+					}
+					netsummarylsa -
+					device.ospf.netsummarylsa {
+						eval $dname config $arg
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						set origin sameArea
+						$UpDevice set_route -route_block $dname -origin $origin					
+					}
+					externalsa -
+					device.ospf.externalsa {
+						eval $dname config $arg
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						set origin externalType1
+						#set origin externalType2
+						$UpDevice set_route -route_block $dname -origin $origin
+					}
+					isis -
+					device.isis {
+						eval $dname config $arg
+					}
+					isis_ipv4route -
+					device.isis.isis_ipv4route -
+					isis_ipv6route -
+					device.isis.isis_ipv6route {
+						eval $dname config $arg
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice set_route -route_block $dname   
+					}
+					bgp -
+					device.bgp {				 
+						eval $dname config  $arg 
+					}
+					bgp_ipv4route -
+					device.bgp.bgp_ipv4route -
+					bgp_ipv6route -
+					device.bgp.bgp_ipv6route {
+						eval $dname config $arg
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice set_route -route_block $dname
+					}
+					dhcpv4_client -
+					device.dhcpv4_client -
+					dhcpv4_server -
+					device.dhcpv4_server -
+					dhcpv4_relay_agent -
+					device.dhcpv4_relay_agent {
+						eval $dname config $arg
+					}
+					pppoe_client -
+					device.pppoe_client -
+					pppoe_server -
+					device.pppoe_server {
+						eval $dname config $arg
+						
+					}
+					igmp -
+					device.igmp {
+						eval ${dname}_group config $arg
+						set UpDevice [ ${dname}_group cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice join_group -group ${dname}_group
+					}
+					igmp_querier -
+					device.igmp_querier {
+						eval $dname config $arg
+					}
+				}
+			}
+			
+			
+			
+	        set arg [lindex $args [expr $j+1]]
+	    }
+		# set root [ixNet getRoot]
+		# ixNet exec apply $root/traffic
+		# after 1000
+		
+	}
+	
+	proc traffic_config { args } {
+		set tag "traffic_config "
+		Logto -info "----- TAG: $tag -----"	
+		global headindex
+        global errNumber
+		global flownamelist
+		global trafficnamelist
+        global flowlist
+		global loadflag
 
+		set Eframelength_mode [list fixed increment decrement random auto]
+		set Eload_mode [list fixed increment decrement]
+		set headlist {}
+		set cmd {}
+		set len [llength $args]
+		puts $len
+		set arg [lindex $args 0]
+		set flag [llength $arg]
+		if {$flag==1} {
+			set len 1
+			set arg $args
+		}
+		for {set i 0} {$i < $len} {incr i} {
+			foreach { key value } $arg {
+				set key [string tolower $key]
+				switch -exact -- $key {
+					-name -
+					-streamblock {
+						incr headindex
+						set streamobj $value
+						EtherHdr ${streamobj}EtherH${headindex} 
+						${streamobj}EtherH${headindex} ChangeType MOD				
+						SingleVlanHdr ${streamobj}VlanH${headindex}
+						${streamobj}VlanH${headindex} SetProtocol vlan2					
+						#${streamobj}VlanH${headindex} ChangeType MOD
+						SingleVlanHdr ${streamobj}VlanH2${headindex} 
+						#${streamobj}VlanH2${headindex} ChangeType MOD					
+						Ipv4Hdr ${streamobj}ipv4H${headindex}
+						#${streamobj}ipv4H${headindex} ChangeType MOD
+						UdpHdr ${streamobj}udpH${headindex}
+						#${streamobj}udpH${headindex} ChangeType MOD
+						TcpHdr ${streamobj}tcpH${headindex}
+						#${streamobj}tcpH${headindex} ChangeType MOD
+						set tname [::IxiaFH::nstype $streamobj] 
+						set highLevelStream [ $tname cget -handle ]
+						foreach pro [ ixNet getList $highLevelStream stack ] {
+		Deputs "pro:$pro"
+							if { [ regexp -nocase IPv4 $pro ] } {
+								${streamobj}ipv4H${headindex} ChangeType MOD
+							}
+						}
+						if { $loadflag } {
+							${streamobj}EtherH${headindex} ChangeType MOD
+							${streamobj}VlanH${headindex} ChangeType MOD
+							${streamobj}VlanH2${headindex} ChangeType MOD
+							${streamobj}ipv4H${headindex} ChangeType MOD
+							${streamobj}udpH${headindex} ChangeType MOD
+							${streamobj}tcpH${headindex} ChangeType MOD
+						}						
+					}
+					-framesize {
+						set framesize $value
+						#$streamobj config -frame_len $value
+						
+					}
+					-active {
+						set trans [ BoolTrans $value ]
+						if { $trans == "1" || $trans == "0" } {
+							set active $value
+						} else {
+							error "$errNumber(1) key:$key value:$value"
+						}
+						#$streamobj config -sig $value
+					}
+					-framelength_mode {
+						set value [ string tolower $value ]
+						if { [ lsearch -exact $Eframelength_mode $value ] >= 0 } {
+							set framelength_mode $value
+						} else {
+							error "$errNumber(1) key:$key value:$value"
+						}
+						#$streamobj config -frame_len_type $value
+					}
+					-framesize_fix {
+						set framesize_fix $value
+						# $streamobj config -frame_len_type fixed \
+							# -frame_len $value
+					}
+					-framesize_crement {
+						set framesize_crement $value
+					}
+					-framesize_random {
+						set framesize_random $value
+					}
+					-load_mode {
+						set value [ string tolower $value ]
+						if { [ lsearch -exact $Eload_mode $value ] >= 0 } {
+						  
+							set load_mode $value
+						} else {
+							error "$errNumber(1) key:$key value:$value"
+						}
+						set load_mode $value
+						set cmd "${cmd}-tx_mode $load_mode "
+					}
+					-load_unit {
+						set load_unit $value						 
+						set cmd  "${cmd}-load_unit $load_unit "
+						
+					}
+					-load {				
+						set load $value
+							
+						set cmd "${cmd}-stream_load $load "
+							
+					}
+					-srcbinding {
+						set srcbinding $value
+					}
+					-dstbinding {
+						set dstbinding $value
+					}
+					-bindinglevel {
+						set bindinglevel $value
+					}
+					-srcmac {
+						set srcmac [MacTrans $value]					
+						set srcmac_count 1
+						set srcmac_type incr
+						set srcmac_step "00:00:00:00:00:01"
+							
+						if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
+						} else { 
+							lappend headlist ${streamobj}EtherH${headindex}
+						}
+					}
+					-srcmac_count {
+						set srcmac_count $value					
+					}
+					-srcmac_type {
+						if {$value == "increment" } {
+							set srcmac_type incr
+						}
+						if {$value == "decrement" } {
+							set srcmac_type decr
+						}
+
+					}
+					-srcmac_step {
+							
+						set srcmac_step [MacTrans $value]
+
+					}
+					-srcmac_mask {
+							
+						set srcmac_mask $value
+					}
+					-dstmac {
+						set dstmac [MacTrans $value]
+							
+						set dstmac_count 1
+						set dstmac_type incr
+						set dstmac_step "00:00:00:00:00:01"
+						if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
+						} else { 
+							lappend headlist ${streamobj}EtherH${headindex}
+						}
+					}
+					-dstmac_count {
+						set dstmac_count $value 	
+					}
+					-dstmac_type {                
+
+						if {$value == "increment" } {
+							set dstmac_type incr
+						}
+						if {$value == "decrement" } {
+							set dstmac_type decr
+						}
+					}
+					-dstmac_step {
+							
+						set dstmac_step [MacTrans $value]
+					}
+					-dstmac_mask {
+							
+						set dstmac_mask $value
+					}
+					-srcip {
+						set srcip $value
+						set srcip_count 1
+						set srcip_type incr
+						set srcip_step "0.0.0.1"
+
+						if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
+						} else { 
+							lappend headlist ${streamobj}ipv4H${headindex}
+						}
+					}
+					-srcip_count {
+						set srcip_count $value 
+
+					}
+					-srcip_type {
+								
+						if {$value == "increment" } {
+							set srcip_type incr
+						}
+						if {$value == "decrement" } {
+							set srcip_type decr
+						}
+					}
+					-srcip_step {					
+						set srcip_step $value
+					}
+					-srcip_mask {
+							
+						set srcip_mask $value
+					}
+					-dstip {
+						set dstip $value
+						set dstip_count 1
+						set dstip_type incr
+						set dstip_step "0.0.0.1"
+						if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
+						} else { 
+							lappend headlist ${streamobj}ipv4H${headindex}
+						}
+					}
+					-dstip_count {
+						set dstip_count $value
+					}
+					-dstip_type {
+												
+						if {$value == "increment" } {
+							set dstip_type incr
+						}
+						if {$value == "decrement" } {
+							set dstip_type decr
+						}
+
+					}
+					-dstip_step {
+							
+						set dstip_step $value
+
+					}
+					-dstip_mask {
+							
+						set dstip_mask $value
+					}
+					-cvlanpri {
+						set cvlanpri $value
+						set cvlanpri_count 1
+
+						if { [lsearch $headlist ${streamobj}VlanH${headindex}] != -1 } {
+						} else { 
+							lappend headlist ${streamobj}VlanH${headindex}
+						}
+					}
+					-cvlanpri_count {
+						set cvlanpri_count $value 
+					}
+					-cvlanpri_type {
+							
+						set cvlanpri_type $value
+						if {$value == "increment" } {
+							set cvlanpri_type Incrementing
+						}
+						if {$value == "decrement" } {
+							set cvlanpri_type Decrementing
+						}
+							
+					}
+					-cvlanpri_step {
+															
+						set cvlanpri_step $value 
+					}
+					-cvlanid {
+						set cvlanid $value
+						set cvlanid_count 1
+						set cvlanid_step 1
+
+						if { [lsearch $headlist ${streamobj}VlanH${headindex}] != -1 } {
+						} else { 
+							lappend headlist ${streamobj}VlanH${headindex}
+						}
+					}
+					-cvlanid_count {
+						set cvlanid_count $value
+
+					}
+					-cvlanid_type {
+						
+						set cvlanid_type $value
+					}
+					-cvlanid_step {
+						
+						set cvlanid_step $value
+					}
+					-svlanpri {
+						set svlanpri $value
+						set svlanpri_count 1
+
+						if { [lsearch $headlist ${streamobj}VlanH2${headindex}] != -1 } {
+						} else { 
+							lappend headlist ${streamobj}VlanH2${headindex}
+						}
+					}
+					-svlanpri_count {
+						set svlanpri_count $value
+						
+					}
+					-svlanpri_type {
+						
+						set svlanpri_type $value
+					}
+					-svlanpri_step {
+						
+						set svlanpri_step $value
+					}
+					-svlanid {
+						set svlanid $value
+						set svlanid_count 1
+						set svlanid_step 1
+
+						if { [lsearch $headlist ${streamobj}VlanH2${headindex}] != -1 } {
+						} else { 
+							lappend headlist ${streamobj}VlanH2${headindex}
+						}
+					}
+					-svlanid_count {
+						set svlanid_count $value
+
+					}
+					-svlanid_type {
+						
+						set svlanid_type $value
+					}
+					-svlanid_step {
+						
+						set svlanid_step $value
+					}
+					-ethtype {
+						set EType [ list internet_ip ipv6 arp  rarp pppoe_session ppp pppoe_dis ]
+						set ETypeVal [ list "0800" "86dd" "0806"  "8035" "8864" "880b" "8863" ]
+						set eindex [lsearch -exact $EType $value]
+						if {$eindex == -1 } {
+							error "No this ethtype $value supported"
+						} else {
+						   set ethtype [lindex $ETypeVal $eindex]
+						}
+
+						${streamobj}EtherH${headindex} config -type $ethtype
+						if { [lsearch $headlist ${streamobj}EtherH${headindex}]!= -1} {    
+						} else { 
+							lappend headlist ${streamobj}EtherH${headindex}
+						}
+					}
+					-ipprotocoltype {
+						
+						set ipprotocoltype $value
+
+						${streamobj}ipv4H${headindex} config -protocol_type $ipprotocoltype
+						if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
+						} else { 
+							lappend headlist ${streamobj}ipv4H${headindex}
+						}
+					}
+					-iptosdscp {
+						
+						set iptosdscp $value
+
+						${streamobj}ipv4H${headindex} config -precedence $value
+						if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
+						} else { 
+							lappend headlist ${streamobj}ipv4H${headindex}
+						}
+					}
+					-udpsrcport {							
+						
+						${streamobj}udpH${headindex} config -src_port $value
+						if { [lsearch $headlist ${streamobj}udpH${headindex}] != -1} {
+						} else { 
+							lappend headlist ${streamobj}udpH${headindex}
+						}		
+					}
+					-tcpsrcport {
+
+						${streamobj}tcpH${headindex} config -src_port $value
+						if { [lsearch $headlist ${streamobj}tcpH${headindex}] != -1} {
+						} else { 
+							lappend headlist ${streamobj}tcpH${headindex}
+						}	
+					}
+					-udpdstport {
+
+						${streamobj}udpH${headindex} config -dst_port $value
+						if { [lsearch $headlist ${streamobj}udpH${headindex}] != -1} {
+						} else { 
+							lappend headlist ${streamobj}udpH${headindex}
+						}	
+					}
+					-tcpdstport {
+			
+						${streamobj}tcpH${headindex} config -dst_port $value
+						if { [lsearch $headlist ${streamobj}tcpH${headindex}] != -1} {
+						} else { 
+							lappend headlist ${streamobj}tcpH${headindex}
+						}	
+					}
+					-mplsid {
+						SingleMplsHdr ${streamobj}mplsH${headindex}
+						if { $loadflag } {
+							${streamobj}mplsH${headindex} ChangeType MOD
+						}						
+						set mplsid $value
+						${streamobj}mplsH${headindex} config -label_id $value
+						lappend headlist ${streamobj}mplsH${headindex}
+					}
+					-rxport -
+					-port {
+					}
+					default {
+						error "$errNumber(3) key:$key value:$value"
+					}
+				}
+			}
+			if {[info exists srcbinding] && [info exists dstbinding]} {
+				set srcbinding [::IxiaFH::nstype $srcbinding]
+				set dstbinding [::IxiaFH::nstype $dstbinding]
+				$streamobj config -src $srcbinding -dst $dstbinding
+				set thandle [$streamobj cget -handle]
+				Deputs "thandle: $thandle"
+				foreach fhandle [ixNet getL $thandle highLevelStream ] {
+				puts "fhandle: $fhandle"
+				   lappend flownamelist [ixNet getA $fhandle -name]
+				  puts "$flownamelist"
+				   lappend flowlist $fhandle
+				}
+			
+			}
+			
+			if {[info exists srcmac] || [info exists dstmac]} {
+				if {[info exists srcmac] && [info exists dstmac]} {
+					${streamobj}EtherH${headindex} config -src $srcmac -src_num $srcmac_count \
+						-src_range_mode $srcmac_type  -src_mac_step $srcmac_step \
+						-dst $dstmac -dst_num $dstmac_count \
+						-dst_range_mode $dstmac_type  -dst_mac_step $dstmac_step
+				} elseif {[info exists srcmac]} {
+					${streamobj}EtherH${headindex} config -src $srcmac -src_num $srcmac_count \
+						-src_range_mode $srcmac_type  -src_mac_step $srcmac_step
+					# set dstmac "00:00:94:00:00:01"
+					# set dstmac_count 1
+					# set dstmac_type incr
+					# set dstmac_step "00:00:00:00:00:01"	
+				 } elseif { [info exists dstmac] } {
+				    ${streamobj}EtherH${headindex} config -dst $dstmac -dst_num $dstmac_count \
+					-dst_range_mode $dstmac_type  -dst_mac_step $dstmac_step
+					  # set srcmac "00:00:00:00:00:01"
+					  # set srcmac_count 1
+					  # set srcmac_type incr
+					  # set srcmac_step "00:00:00:00:00:01"
+				 }
+				
+				
+				# ${streamobj}EtherH${headindex} config -src $srcmac -src_num $srcmac_count \
+					# -src_range_mode $srcmac_type  -src_mac_step $srcmac_step \
+					# -dst $dstmac -dst_num $dstmac_count \
+					# -dst_range_mode $dstmac_type  -dst_mac_step $dstmac_step
+			}
+			
+			if {[info exists srcip]} {
+				${streamobj}ipv4H${headindex} config -src $srcip -src_num $srcip_count \
+					-src_range_mode $srcip_type  -src_step $srcip_step
+				
+			}
+			if {[info exists dstip]} {		    
+				${streamobj}ipv4H${headindex} config -dst $dstip -dst_num $dstip_count \
+					-dst_range_mode $dstip_type  -dst_step $dstip_step
+			}
+			if {[info exists cvlanpri]} {		    
+				${streamobj}VlanH${headindex} config -pri1 $cvlanpri -pri1_num $cvlanpri_count
+			}
+			if {[info exists cvlanid]} {		    
+				${streamobj}VlanH${headindex} config -id1 $cvlanid -id1_num $cvlanid_count \
+						-id1_step $cvlanid_step 
+			}
+			if {[info exists svlanpri]} {		    
+				${streamobj}VlanH2${headindex} config -pri1 $svlanpri -pri1_num $svlanpri_count
+			}
+			if {[info exists svlanid]} {		    
+				${streamobj}VlanH2${headindex} config -id1 $svlanid -id1_num $svlanid_count \
+						-id1_step $svlanid_step 
+			}
+			if {[info exists framesize_fix]} {
+				
+				$streamobj config -frame_len_type fixed \
+				 -frame_len $framesize_fix
+			} 
+			if {[info exists framesize_crement]} {
+				set fram_len_step [lindex $framesize_crement 0]				
+				set min_fram_len [lindex $framesize_crement 1]				
+				set max_fram_len [lindex $framesize_crement 2]	
+				$streamobj config -frame_len_type incr \
+				-frame_len_step $fram_len_step \
+				-min_frame_len $min_fram_len \
+				-max_frame_len $max_fram_len
+			}
+			if {[info exists framesize_random]} {
+				set min_fram_len [lindex $framesize_random 0]
+				set max_fram_len [lindex $framesize_random 1]
+				$streamobj config -frame_len_type random \
+				-min_frame_len $min_fram_len \
+				-max_frame_len $max_fram_len
+			}
+			if {[info exists framesize]} {
+				$streamobj config -frame_len $framesize
+			}
+			if {[info exists active]} {
+				$streamobj config -sig $active
+			}
+			if {[info exists framelength_mode]} {
+				$streamobj config -frame_len_type $framelength_mode
+			}
+			if { $headlist == "" } {
+				if {$cmd != "" } {
+				   eval $streamobj config $cmd
+				}
+			   
+			} else {
+				set headlist [::IxiaFH::nstype $headlist]
+				
+				eval $streamobj config -pdu $headlist $cmd
+			}	
+			# set root [ixNet getRoot]
+			# ixNet exec apply $root/traffic
+			# after 1000
+			set arg [lindex $args [expr $i+1]]
+	}	
+
+}
 	proc device_start { args } {
 		set tag "device_start "
 		Logto -info "----- TAG: $tag -----"
@@ -1673,7 +2564,6 @@ namespace eval IxiaFH {
 			Tester::stop_router
 		}
 	}
-
 	proc capture_start {args } {
 		set tag "capture_start "
 		Logto -info "----- TAG: $tag -----"
@@ -2015,9 +2905,8 @@ namespace eval IxiaFH {
 		}
         
         if { [ lsearch $deviceList $device ] == -1 } {
-            set devicelist   [ split $device  _ ]
+            set devicelist   [ split $device  .]
             set portname     [ lindex $devicelist 0 ]
-           
             set fhport [::IxiaFH::nstype $portname]
             set phandle [$fhport cget -handle]
             set prothandle [ixNet getL $phandle/protocols $protocoltype]
@@ -2084,12 +2973,11 @@ namespace eval IxiaFH {
 	}	
 	
     
-    proc device_config { args } {
+    proc device_config_old { args } {
 		set tag "device_config "
 		Logto -info "----- TAG: $tag -----"
 		global deviceList
-        global errNumber
-		
+        global errNumber		
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
@@ -3250,6 +4138,10 @@ namespace eval IxiaFH {
         }
     }
     
+	proc ospfv2_create { args } {
+		set tag "ospfv2_create "
+		Logto"----- TAG: $tag -----"	
+	}
     proc ospfv2_start { args } {
 		set tag "ospfv2_start "
 		Logto -info "----- TAG: $tag -----"
