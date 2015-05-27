@@ -12,6 +12,7 @@ class OspfSession {
     inherit RouterEmulationObject
 	public variable routeBlock
 	public variable hNetworkRange
+	public variable protocolhandle
 	constructor { port { pHandle null } { hInterface null } } {
 		global errNumber
 		set routeBlock(obj) ""
@@ -34,6 +35,7 @@ Deputs "----- TAG: $tag -----"
 				}
 	Deputs "hPort:$hPort" 
             ixNet setA $hPort/protocols/ospf -enabled True	
+			set protocolhandle "$hPort/protocols/ospf"
             set handle [ ixNet add $hPort/protocols/ospf router ]
             ixNet commit
             set handle [ ixNet remapIds $handle ]
@@ -446,6 +448,7 @@ Deputs "Args:$args "
 				set value [string toupper $value]
 				set network_type $value
 			}
+			-option -
 			-options {
 				set options $value
 			}
@@ -457,6 +460,7 @@ Deputs "Args:$args "
 			-retransmit_interval {
 				set retransmit_interval $value
 			}
+			-router_pri -
 			-priority {
 				set priority $value
 			}
@@ -477,8 +481,8 @@ Deputs "Args:$args "
 			}
         }
     }
-	
-	ixNet setM $handle -enabled True
+	ixNet setA $handle -enabled True
+	puts "handle:$handle"
 	if { [ info exists graceful_restart ] } {
 		if { graceful_restart } {
 			ixNet setA $handle -gracefulRestart true
@@ -501,10 +505,13 @@ Deputs "Args:$args "
 		}
 		set id_hex [IP2Hex $area_id]			
 		set area_id [format %i 0x$id_hex]
+		puts "interface:$interface"
+		set interface [ixNet getL $handle interface]
 		ixNet setA $interface $attri $area_id
 		ixNet commit
 	}
 	if { [ info exists hello_interval ] } {
+		set interface [ixNet getL $handle interface]
 		ixNet setA $interface -helloInterval $hello_interval	
 		ixNet commit
 	}
@@ -515,7 +522,8 @@ Deputs "Args:$args "
 			set attri "-linkMetric"
 		} else {
 			error "metric setting error"
-		}
+		}		
+		set interface [ixNet getL $handle interface]
 		ixNet setA $interface $attri $if_cost
 		ixNet commit
 	}
@@ -543,6 +551,7 @@ Deputs "Args:$args "
 		} else {
 			error "network type setting error"
 		}
+		set interface [ixNet getL $handle interface]
 		ixNet setA $interface $attri $network_type
 		ixNet commit
 	}
@@ -584,12 +593,15 @@ Deputs "Args:$args "
 		}
 		set opt_val "00$dcbit$rbit$nbit$mcbit$ebit$v6bit"
 		set opt_val [BinToDec $opt_val]
-#		 set opt_val [Int2Hex $opt_val]		
-		ixNet setA $interface -routerOptions $opt_val
+#		 set opt_val [Int2Hex $opt_val]	
+		set interface [ixNet getL $handle interface]
+		ixNet setA $interface -options $opt_val
 		ixNet commit
 	}
 	
 	if { [ info exists dead_interval ] } {
+		set interface [ixNet getL $handle interface]
+		puts "interface:$interface"
 		ixNet setA $interface -deadInterval $dead_interval
 		ixNet commit
 	}
@@ -597,10 +609,14 @@ Deputs "Args:$args "
 	# v3 
 	# v2 -lsaRetransmitTime
 	if { [ info exists retransmit_interval ] } {
+		set interface [ixNet getL $handle interface]
+		puts "interface:$interface"
 		ixNet setA $interface -lsaRetransmitTime $retransmit_interval
 		ixNet commit
 	}
 	if { [ info exists priority ] } {
+		set interface [ixNet getL $handle interface]
+		puts "interface:$interface"
 		ixNet setA $interface -priority $priority
 		ixNet commit
 	}

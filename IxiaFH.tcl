@@ -1223,13 +1223,17 @@ namespace eval IxiaFH {
 			    device {
 				    Host $hostName $portn
 				}
-				device.ospf {
+				device.ospfv2 {
 				    set ospfInt     [ $hostName cget -handle    ]
 					puts "ospfInt: $ospfInt"
-					eval OspfSession $lastName $portn "null" $ospfInt  
+					set session [ lindex [split $name "."] 1 ]
+					set session [ ::IxiaFH::nstype $session  ] 
+					puts "session:$session"
+					eval OspfSession $lastName $portn "null" $ospfInt 
+					$hostName SetSession $session
 					$lastName config -network_type broadcast     
 				}
-				device.ospf.netsummarylsa {
+				device.ospfv2.netsummarylsa {
 					set UpDevice [ lindex [split $name "."] 1 ]
 					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
 					puts "UpDevice:$UpDevice"
@@ -1238,7 +1242,7 @@ namespace eval IxiaFH {
 					$lastName config -active 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_lsa 1	
 					eval device_config $args
 				}
-				device.ospf.externalsa {
+				device.ospfv2.externalsa {
 					set UpDevice [ lindex [split $name "."] 1 ]
 					set UpDevice [ ::IxiaFH::nstype $UpDevice   ]
 					puts "UpDevice:$UpDevice"
@@ -1250,6 +1254,10 @@ namespace eval IxiaFH {
 				device.isis {
 					set isisInt     [ $hostName cget -handle    ]
 					puts "isisInt: $isisInt"
+					set session [ lindex [split $name "."] 1 ]
+					set session [ ::IxiaFH::nstype $session  ] 
+					puts "session:$session"
+					$hostName SetSession $session
 					eval IsisSession $lastName $portn "null" $isisInt
 					$lastName config -network_type broadcast -metric 1 -hello_interval 10 -dead_interval 30 -max_lspsize 1492 -lsp_refresh 900 
 				}
@@ -1273,7 +1281,11 @@ namespace eval IxiaFH {
 				}
 				device.bgp {				 				
 					set bgpInt     [ $hostName cget -handle    ]
-					set bgpID      [ $hostName cget -ipv4Addr  ]										
+					set bgpID      [ $hostName cget -ipv4Addr  ]	
+					set session [ lindex [split $name "."] 1 ]
+					set session [ ::IxiaFH::nstype $session  ] 
+					puts "session:$session"
+					$hostName SetSession $session
 				    BgpSession $lastName $portn "null" $bgpInt
 					eval $lastName config  -bgp_id $bgpID -as_num 1 \
 					    -bgp_type "ebgp" -hold_time 10
@@ -1357,6 +1369,23 @@ namespace eval IxiaFH {
 					
 					
 				}
+				device.mld {
+				    set mldInt     [ $hostName cget -handle    ]										
+				    MldHost $lastName $portn "null" $mldInt
+					MulticastGroup ${lastName}_group 
+					${lastName}_group SetUpDevice $lastName
+					${lastName}_group config -group_num 1 \
+					    -group_start_ip "ff1e::1" \
+						-group_ip_step "::1"
+					$lastName join_group -group ${lastName}_group
+					
+				}
+				device.mld_querier {
+				    set mldInt     [ $hostName cget -handle    ]										
+				    MldQuerier $lastName $portn "null" $mldInt
+					
+					
+				}
             }
 			if { $flag } {
 			    device_config  $arg
@@ -1387,14 +1416,11 @@ namespace eval IxiaFH {
 		}
 		puts $arg
 		for {set j 0} { $j < $len } { incr j } {
-		    set args_value ""
+		    set args_value_pairs ""
 			set obj_name ""
 		    foreach { key value } $arg {
 			    set key [string tolower $key]
 			    switch -exact -- $key {
-				    -obj_name {
-					    set obj_name $value
-					}
 				    -name {
 					    set name [lindex [split $value "."] end]
 						
@@ -1402,153 +1428,106 @@ namespace eval IxiaFH {
 					-obj_type {
 						set obj_type $value
 					}
-					-args_value_pairs {
-					    set args_value $value
-                        
+					-args_value {
+					    set args_value_pairs $value
+                        puts "args_value_pairs:$args_value_pairs"
 				    }					
 			    }
 		    }
-			
-			if { $args_value != "" && $obj_name != "" } {
-			    set devicelist   [ split $obj_name  _ ]
-				set portname     [ lindex $devicelist 0 ]
-				set protocoltype [ lindex $devicelist 1 ]
-				set EPType { dhcp pppoe igmp dhcpserver bgp isis ospf}
-				set protocoltype [string tolower $obj_type]
-				foreach ptype $EPType {
-					if { [regexp ^$ptype.* $protocoltype] } {               
-						set protocoltype $ptype
-						Logto -info "protocol type $ptype"
-						break
-					}
-					
-				}
-				if { $protocoltype == "bgp" || $protocoltype == "isis" || $protocoltype == "ospf" ||$protocoltype == "igmp"} {
-					protocol_handle  -device $device -protocoltype $protocoltype
-				} else {
-				
-					access_protocol_handle -port $portname -device $obj_name -protocoltype $protocoltype 
-				}
-				foreach { key value } $args_value {
+		
+			if { $args_value_pairs != "" && $name != "" } {
+				foreach { key value } $args_value_pairs {
 					set key [string tolower $key]
-					switch -exact -- $key {
-						-src_mac {
-							$obj_name config -mac_addr $value
-								
-						}
-						-dst_mac {					                       
-						}
-						-vlan {
-							$obj_name config -vlan_id1 $value                        
-						}
-						-src_ip {
-							if {$protocoltype == "igmp" } {
-								$obj_name config -ipaddr $value
-							}                    
-						}
-						-gateway_ip {
-													
-						}
-						-ospf_area_id {
-							$obj_name config  -area_id $value
-								
-						}
-						-ospf_network_type {
-							$obj_name config  -network_type $value
-								
-						}
-						-isis_system_id {
-							$obj_name config  -system_id $value
-								
-						}
-						-isis_level {
-							if { $value == 0 } {
-								set value "level2"
-							} elseif { $value == 1 } {
-								set value "level1"
-							} elseif { $value == 2 } {
-								set value "level1Level2"
-							}
-							$obj_name config  -level_type $value
-								
-						}
-						-isis_network_type {
-							$obj_name config  -network_type $value
-								
-						}
-						-isis_metric_mode {
-							$obj_name config  -metric $value
-								
-						}
-						-bgp_mode {
-							if { $value == 0 } {
-								set value "external"
-							} elseif { $value == 1 } {
-								set value "internal"
-							}
-							$obj_name config  -type $value
-								
-						}
-						-bgp_dut_as {
-							$obj_name config  -dut_as $value
-								
-						}
-						-bgp_local_as {
-							$obj_name config  -as $value
-								
-						}
-						-dhcp_pool_address_start {
-							$obj_name config  -pool_ip_start $value
-								
-						}
-						-dhcp_pool_host_address_start {
-							$obj_name config  -pool_ip_pfx $value
-								
-						}
-						-dhcp_pool_address_count {
-							$obj_name config  -pool_ip_count $value
-								
-						}
-						-dhcp_enable_broadcast_flag {
-							$obj_name config  -use_broadcast_flag $value
-								
-						}
-						-pppoe_auth {
-							$obj_name config  -authentication $value
-								
-						}
-						-pppoe_usename {
-							$obj_name config  -user_name $value
-								
-						}
-						-pppoe_password {
-							$obj_name config  -password $value
-								
-						}
-						-multicast_version {
-							$obj_name config  -version $value
-								
-						}
-						-igmp_start_group_ip {
-							$obj_name config  -ipaddr $value
-								
-						} 
-						-igmp_group_step {
-							$obj_name config  -ipaddr_step $value
-								
-						}
-						-igmp_group_num {
-							$obj_name config  -count $value
-								
-						} 
-						-pim_mode {
-							$obj_name config  -pim_mode $value
-								
-						}
-						-pim_role {
-							$obj_name config  -pim_role $value
-								
-						}                
+				}
+				set dname [::IxiaFH::nstype $name]
+				set obj_type [ string tolower $obj_type]
+				switch -exact -- $obj_type {
+					device {
+						eval $dname config $args_value_pairs						
+					}
+					ospfv2 -
+					device.ospfv2 {						
+						eval $dname config $args_value_pairs
+					}
+					netsummarylsa -
+					device.ospfv2.netsummarylsa {
+						eval $dname config $args_value_pairs
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						set origin sameArea
+						$UpDevice set_route -route_block $dname -origin $origin					
+					}
+					externalsa -
+					device.ospfv2.externalsa {
+						eval $dname config $args_value_pairs
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						set origin externalType1
+						#set origin externalType2
+						$UpDevice set_route -route_block $dname -origin $origin
+					}
+					isis -
+					device.isis {
+						eval $dname config $args_value_pairs
+					}
+					isis_ipv4route -
+					device.isis.isis_ipv4route -
+					isis_ipv6route -
+					device.isis.isis_ipv6route {
+						eval $dname config $args_value_pairs
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice set_route -route_block $dname   
+					}
+					bgp -
+					device.bgp {				 
+						eval $dname config  $args_value_pairs 
+					}
+					bgp_ipv4route -
+					device.bgp.bgp_ipv4route -
+					bgp_ipv6route -
+					device.bgp.bgp_ipv6route {
+						eval $dname config $args_value_pairs
+						set UpDevice [ $dname cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice set_route -route_block $dname
+					}
+					dhcpv4_client -
+					device.dhcpv4_client -
+					dhcpv4_server -
+					device.dhcpv4_server -
+					dhcpv4_relay_agent -
+					device.dhcpv4_relay_agent {
+						eval $dname config $args_value_pairs
+					}
+					pppoe_client -
+					device.pppoe_client -
+					pppoe_server -
+					device.pppoe_server {
+						eval $dname config $args_value_pairs
+						
+					}
+					igmp -
+					device.igmp {
+						eval ${dname}_group config $args_value_pairs
+						set UpDevice [ ${dname}_group cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice join_group -group ${dname}_group
+					}
+					igmp_querier -
+					device.igmp_querier {
+						eval $dname config $args_value_pairs
+					}
+					mld -
+					device.mld {
+						eval ${dname}_group config $args_value_pairs
+						set UpDevice [ ${dname}_group cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice join_group -group ${dname}_group
+					}
+					mld_querier -
+					device.mld_querier {
+						eval $dname config $args_value_pairs
 					}
 				}
 			} else {
@@ -1559,12 +1538,12 @@ namespace eval IxiaFH {
 					device {
 						eval $dname config $arg						
 					}
-					ospf -
-					device.ospf {						
+					ospfv2 -
+					device.ospfv2 {						
 						eval $dname config $arg
 					}
 					netsummarylsa -
-					device.ospf.netsummarylsa {
+					device.ospfv2.netsummarylsa {
 						eval $dname config $arg
 						set UpDevice [ $dname cget -up_device ]
 						puts "UpDevice:$UpDevice"
@@ -1572,7 +1551,7 @@ namespace eval IxiaFH {
 						$UpDevice set_route -route_block $dname -origin $origin					
 					}
 					externalsa -
-					device.ospf.externalsa {
+					device.ospfv2.externalsa {
 						eval $dname config $arg
 						set UpDevice [ $dname cget -up_device ]
 						puts "UpDevice:$UpDevice"
@@ -1632,18 +1611,29 @@ namespace eval IxiaFH {
 					device.igmp_querier {
 						eval $dname config $arg
 					}
+					mld -
+					device.mld {
+						eval ${dname}_group config $arg
+						set UpDevice [ ${dname}_group cget -up_device ]
+						puts "UpDevice:$UpDevice"
+						$UpDevice join_group -group ${dname}_group
+					}
+					mld_querier -
+					device.mld_querier {
+						eval $dname config $arg
+					}
 				}
 			}
 			
 			
 			
 	        set arg [lindex $args [expr $j+1]]
-	    }
+	}
 		# set root [ixNet getRoot]
 		# ixNet exec apply $root/traffic
 		# after 1000
 		
-	}
+}
 	
 	proc traffic_config { args } {
 		set tag "traffic_config "
@@ -2194,7 +2184,7 @@ namespace eval IxiaFH {
 		Logto -info "----- TAG: $tag -----"
         global errNumber
         global fhportlist
-        
+		global loadflag
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
@@ -2206,159 +2196,173 @@ namespace eval IxiaFH {
 				}
 			}
 		}
-		
-		if {[info exists device_list] } {
-            foreach devicename $device_list {
-                set devicelist   [ split $devicename  _ ]
-                set portname     [ lindex $devicelist 0 ]
-                set protocoltype [ lindex $devicelist 1 ]
-                
-                # set EPType { bgp isis ospf igmp mld ldp}
-                # set protocoltype [string tolower $protocoltype]
-                # foreach ptype $EPType {
-                    # if { [regexp .*$ptype.* $protocoltype] } {
-                        # set protocoltype $ptype
-                        # Logto -info "protocol type $ptype"
-						# break
-                    # }
-                    
-                # }
-				set EPType { bgp ebgp ibgp isis ospf igmp mld ldp}
-                set protocoltype [string tolower $protocoltype]
-                foreach ptype $EPType {
-                    if { [regexp ^$ptype.* $protocoltype] } {
-					   if { $ptype == "ibgp" || $ptype == "ebgp" } {
-					      set ptype "bgp"
-					   }
-                        set protocoltype $ptype
-                        Logto -info "protocol type $ptype"
-						break
-                    }
-                    
-                }
-             
-                foreach fhport $fhportlist {
-                    if {[regexp $portname $fhport]} {
-                        set phandle [$fhport cget -handle]
-                        set prothandle [ixNet getL $phandle/protocols $protocoltype]
-                        Logto -info "protocol handle $prothandle"
-                        
-                        switch -exact -- $protocoltype {
-                            isis {
-                                set routerlist [ ixNet getL $prothandle router ]
-                                foreach router $routerlist {
-                                Logto -info "router handle $router"
-                                    set rinterface [ ixNet getL $router interface ]
-                                    set inter_handle [ixNet getA $rinterface -interfaceId ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled true
-                                            #ixNet commit 
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled true
-                                        #ixNet commit    
-                                        
-                                    }    
-                                }   
-                                
-                            }
-                            bgp {
-                                set routerlist [ ixNet getL $prothandle neighborRange ]
-                                foreach router $routerlist { 
-                                    Logto -info "router handle $router"
-                                    set inter_handle [ixNet getA $router -interfaces ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled true
-                                            #ixNet commit 
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled true
-                                        #ixNet commit    
-                                        
-                                    }    
-                                }
-                            }
-                            ospf {
-                                set routerlist [ ixNet getL $prothandle router ]
-                                foreach router $routerlist {
-                                    Logto -info "router handle $router"
-                                    set rinterface [ ixNet getL $router interface ]
-                                    set inter_handle [ixNet getA $rinterface -interfaces ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled true
-                                            #ixNet commit 
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled true
-                                        #ixNet commit    
-                                        
-                                    }    
-                                }
-                            }
-                        }
-                        ixNet commit
-                        after 1000
-                                
-                        set prostate [ ixNet getA $prothandle -runningState ]
-                        if { $prostate == "stopped" } {
-                        Logto -info "router start $prothandle"
-                           ixNet exec start $prothandle
-                           after 5000
-                        }
-                           
-                    }
-                }            
-            }    	
+		if { $loadflag } {	
+			if {[info exists device_list] } {
+				foreach devicename $device_list {
+					set devicelist   [ split $devicename  _ ]
+					set portname     [ lindex $devicelist 0 ]
+					set protocoltype [ lindex $devicelist 1 ]
+					
+					# set EPType { bgp isis ospf igmp mld ldp}
+					# set protocoltype [string tolower $protocoltype]
+					# foreach ptype $EPType {
+						# if { [regexp .*$ptype.* $protocoltype] } {
+							# set protocoltype $ptype
+							# Logto -info "protocol type $ptype"
+							# break
+						# }
+						
+					# }
+					set EPType { bgp ebgp ibgp isis ospf igmp mld ldp}
+					set protocoltype [string tolower $protocoltype]
+					foreach ptype $EPType {
+						if { [regexp ^$ptype.* $protocoltype] } {
+						   if { $ptype == "ibgp" || $ptype == "ebgp" } {
+							  set ptype "bgp"
+						   }
+							set protocoltype $ptype
+							Logto -info "protocol type $ptype"
+							break
+						}
+						
+					}
+				 
+					foreach fhport $fhportlist {
+						if {[regexp $portname $fhport]} {
+							set phandle [$fhport cget -handle]
+							set prothandle [ixNet getL $phandle/protocols $protocoltype]
+							Logto -info "protocol handle $prothandle"
+							
+							switch -exact -- $protocoltype {
+								isis {
+									set routerlist [ ixNet getL $prothandle router ]
+									foreach router $routerlist {
+									Logto -info "router handle $router"
+										set rinterface [ ixNet getL $router interface ]
+										set inter_handle [ixNet getA $rinterface -interfaceId ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled true
+												#ixNet commit 
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled true
+											#ixNet commit    
+											
+										}    
+									}   
+									
+								}
+								bgp {
+									set routerlist [ ixNet getL $prothandle neighborRange ]
+									foreach router $routerlist { 
+										Logto -info "router handle $router"
+										set inter_handle [ixNet getA $router -interfaces ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled true
+												#ixNet commit 
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled true
+											#ixNet commit    
+											
+										}    
+									}
+								}
+								ospf {
+									set routerlist [ ixNet getL $prothandle router ]
+									foreach router $routerlist {
+										Logto -info "router handle $router"
+										set rinterface [ ixNet getL $router interface ]
+										set inter_handle [ixNet getA $rinterface -interfaces ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled true
+												#ixNet commit 
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled true
+											#ixNet commit    
+											
+										}    
+									}
+								}
+							}
+							ixNet commit
+							after 1000
+									
+							set prostate [ ixNet getA $prothandle -runningState ]
+							if { $prostate == "stopped" } {
+							Logto -info "router start $prothandle"
+							   ixNet exec start $prothandle
+							   after 5000
+							}
+							   
+						}
+					}            
+				}    	
+			} else {
+				set protocollist {isis ospf bgp}
+				foreach protocoltype $protocollist {
+					foreach fhport $fhportlist {
+					   
+						set phandle [$fhport cget -handle]
+						set prothandle [ixNet getL $phandle/protocols $protocoltype]
+						Logto -info "protocol handle $prothandle"
+						
+						switch -exact -- $protocoltype {
+							isis {
+								set routerlist [ ixNet getL $prothandle router ]
+								foreach router $routerlist {                           
+									ixNet setA $router -enabled true
+									#ixNet commit                                           
+								}                               
+							}
+							bgp {
+								set routerlist [ ixNet getL $prothandle neighborRange ]
+								foreach router $routerlist { 
+									Logto -info "router handle $router"
+								 
+									ixNet setA $router -enabled true
+									#ixNet commit    
+		  
+								}
+							}
+							ospf {
+								set routerlist [ ixNet getL $prothandle router ]
+								foreach router $routerlist {
+									Logto -info "router handle $router"                              
+									ixNet setA $router -enabled true
+									#ixNet commit                                        
+								}
+							}
+						}
+								
+						
+					}
+				}
+				ixNet commit
+				after 1000
+				Tester::start_router 
+				after 5000
+			}
 		} else {
-            set protocollist {isis ospf bgp}
-            foreach protocoltype $protocollist {
-                foreach fhport $fhportlist {
-                   
-                    set phandle [$fhport cget -handle]
-                    set prothandle [ixNet getL $phandle/protocols $protocoltype]
-                    Logto -info "protocol handle $prothandle"
-                    
-                    switch -exact -- $protocoltype {
-                        isis {
-                            set routerlist [ ixNet getL $prothandle router ]
-                            foreach router $routerlist {                           
-                                ixNet setA $router -enabled true
-                                #ixNet commit                                           
-                            }                               
-                        }
-                        bgp {
-                            set routerlist [ ixNet getL $prothandle neighborRange ]
-                            foreach router $routerlist { 
-                                Logto -info "router handle $router"
-                             
-                                ixNet setA $router -enabled true
-                                #ixNet commit    
-      
-                            }
-                        }
-                        ospf {
-                            set routerlist [ ixNet getL $prothandle router ]
-                            foreach router $routerlist {
-                                Logto -info "router handle $router"                              
-                                ixNet setA $router -enabled true
-                                #ixNet commit                                        
-                            }
-                        }
-                    }
-                            
-                    
-                }
-            }
-            ixNet commit
-            after 1000
-			Tester::start_router 
-			after 5000
+			
+			set device_list [ ::IxiaFH::nstype $device_list ]
+			set dhandle [ $device_list cget -protocolhandle ]
+			if { [ $device_list isa Host ] } {
+				Tester::start_router 
+			} else {
+				set prostate [ ixNet getA $dhandle -runningState ]
+					if { $prostate == "stopped" } {
+						Logto -info "router start $dhandle"
+						ixNet exec start $dhandle	
+			        }
+			}
 		}
 		
 		# set root [ixNet getRoot]
@@ -2372,6 +2376,7 @@ namespace eval IxiaFH {
 		Logto -info "----- TAG: $tag -----"
         global errNumber
         global fhportlist
+		global loadflag
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
@@ -2383,183 +2388,195 @@ namespace eval IxiaFH {
 				}
 			}
 		}
-		
-		if {[info exists device_list] } {
-			foreach devicename $device_list {
-                set devicelist   [ split $devicename  _ ]
-                set portname     [ lindex $devicelist 0 ]
-                set protocoltype [ lindex $devicelist 1 ]
-                
-                # set EPType { bgp isis ospf igmp mld ldp}
-                # set protocoltype [string tolower $protocoltype]
-                # foreach ptype $EPType {
-                    # if { [regexp .*$ptype.* $protocoltype] } {
-                        # set protocoltype $ptype
-                        # Logto -info "protocol type $ptype"
-						# break
-                    # }
-                    
-                # }
-                set EPType { bgp ebgp ibgp isis ospf igmp mld ldp}
-                set protocoltype [string tolower $protocoltype]
-                foreach ptype $EPType {
-                    if { [regexp ^$ptype.* $protocoltype] } {
-					   if { $ptype == "ibgp" || $ptype == "ebgp" } {
-					      set ptype "bgp"
-					   }
-                        set protocoltype $ptype
-                        Logto -info "protocol type $ptype"
-						break
-                    }
-                    
-                }
-                set stopflag 1
-             
-                foreach fhport $fhportlist {
-                    if {[regexp $portname $fhport]} {
-                        set phandle [$fhport cget -handle]
-                        set prothandle [ixNet getL $phandle/protocols $protocoltype]
-                        Logto -info "protocol handle $prothandle"
-                        
-                        switch -exact -- $protocoltype {
-                            isis {
-                                set routerlist [ ixNet getL $prothandle router ]
-                                foreach router $routerlist {
-                                Logto -info "router handle $router"
-                                    set rinterface [ ixNet getL $router interface ]
-                                    set inter_handle [ixNet getA $rinterface -interfaceId ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled false
-                                            #ixNet commit 
-                                            
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled false
-                                        #ixNet commit 
-                                        Logto -info "router handle $router disabled"                                         
-                                        
-                                    } 
-                                       
-                                }  
-                                foreach router $routerlist {    
-                                    set routerstate [ixNet getA $router -enabled ]
-                                    if { $routerstate == "true" } {
-                                        set stopflag 0
-                                    }                                           
-                                }                                 
-                                
-                            }
-                            bgp {
-                                set routerlist [ ixNet getL $prothandle neighborRange ]
-                                foreach router $routerlist { 
-                                    Logto -info "router handle $router"
-                                    set inter_handle [ixNet getA $router -interfaces ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled false
-                                            #ixNet commit 
-                                            
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled false
-                                       # ixNet commit 
-                                        Logto -info "router handle $router disabled"                                         
-                                        
-                                    }   
-                                }
-                                foreach router $routerlist {    
-                                    set routerstate [ixNet getA $router -enabled ]
-                                    if { $routerstate == "true" } {
-                                        set stopflag 0
-                                    }                                           
-                                }
-                            }
-                            ospf {
-                                set routerlist [ ixNet getL $prothandle router ]
-                                foreach router $routerlist {
-                                    Logto -info "router handle $router"
-                                    set rinterface [ ixNet getL $router interface ]
-                                    set inter_handle [ixNet getA $rinterface -interfaces ]
-                                    set inter_name [ ixNet getA $inter_handle -description ] 
-                                    if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
-                                        if { [regexp $predevice.* $inter_name ] } {
-                                            ixNet setA $router -enabled false
-                                            #ixNet commit 
-                                            
-                                        }
-                                    } elseif { $inter_name == $devicename } {
-                                        ixNet setA $router -enabled false
-                                       # ixNet commit 
-                                        Logto -info "router handle $router disabled"                                         
-                                        
-                                    }   
-                                }
-                                foreach router $routerlist {    
-                                    set routerstate [ixNet getA $router -enabled ]
-                                    if { $routerstate == "true" } {
-                                        set stopflag 0
-                                    }                                           
-                                }
-                            }
-                        }
-                                
-                        ixNet commit 
-                        after 1000
-                        if { $stopflag == 1 } {
-                        Logto -info "router stop $prothandle"
-                           ixNet exec stop $prothandle
-                           after 5000
-                        }
-                           
-                    }
-                }            
-            } 
+		if { $loadflag } {
+			if {[info exists device_list] } {
+				foreach devicename $device_list {
+					set devicelist   [ split $devicename  _ ]
+					set portname     [ lindex $devicelist 0 ]
+					set protocoltype [ lindex $devicelist 1 ]
+					
+					# set EPType { bgp isis ospf igmp mld ldp}
+					# set protocoltype [string tolower $protocoltype]
+					# foreach ptype $EPType {
+						# if { [regexp .*$ptype.* $protocoltype] } {
+							# set protocoltype $ptype
+							# Logto -info "protocol type $ptype"
+							# break
+						# }
+						
+					# }
+					set EPType { bgp ebgp ibgp isis ospf igmp mld ldp}
+					set protocoltype [string tolower $protocoltype]
+					foreach ptype $EPType {
+						if { [regexp ^$ptype.* $protocoltype] } {
+						   if { $ptype == "ibgp" || $ptype == "ebgp" } {
+							  set ptype "bgp"
+						   }
+							set protocoltype $ptype
+							Logto -info "protocol type $ptype"
+							break
+						}
+						
+					}
+					set stopflag 1
+				 
+					foreach fhport $fhportlist {
+						if {[regexp $portname $fhport]} {
+							set phandle [$fhport cget -handle]
+							set prothandle [ixNet getL $phandle/protocols $protocoltype]
+							Logto -info "protocol handle $prothandle"
+							
+							switch -exact -- $protocoltype {
+								isis {
+									set routerlist [ ixNet getL $prothandle router ]
+									foreach router $routerlist {
+									Logto -info "router handle $router"
+										set rinterface [ ixNet getL $router interface ]
+										set inter_handle [ixNet getA $rinterface -interfaceId ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled false
+												#ixNet commit 
+												
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled false
+											#ixNet commit 
+											Logto -info "router handle $router disabled"                                         
+											
+										} 
+										   
+									}  
+									foreach router $routerlist {    
+										set routerstate [ixNet getA $router -enabled ]
+										if { $routerstate == "true" } {
+											set stopflag 0
+										}                                           
+									}                                 
+									
+								}
+								bgp {
+									set routerlist [ ixNet getL $prothandle neighborRange ]
+									foreach router $routerlist { 
+										Logto -info "router handle $router"
+										set inter_handle [ixNet getA $router -interfaces ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled false
+												#ixNet commit 
+												
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled false
+										   # ixNet commit 
+											Logto -info "router handle $router disabled"                                         
+											
+										}   
+									}
+									foreach router $routerlist {    
+										set routerstate [ixNet getA $router -enabled ]
+										if { $routerstate == "true" } {
+											set stopflag 0
+										}                                           
+									}
+								}
+								ospf {
+									set routerlist [ ixNet getL $prothandle router ]
+									foreach router $routerlist {
+										Logto -info "router handle $router"
+										set rinterface [ ixNet getL $router interface ]
+										set inter_handle [ixNet getA $rinterface -interfaces ]
+										set inter_name [ ixNet getA $inter_handle -description ] 
+										if {[  regexp {^([0-9a-zA-Z_]+)\*$} $devicename a predevice ]} {
+											if { [regexp $predevice.* $inter_name ] } {
+												ixNet setA $router -enabled false
+												#ixNet commit 
+												
+											}
+										} elseif { $inter_name == $devicename } {
+											ixNet setA $router -enabled false
+										   # ixNet commit 
+											Logto -info "router handle $router disabled"                                         
+											
+										}   
+									}
+									foreach router $routerlist {    
+										set routerstate [ixNet getA $router -enabled ]
+										if { $routerstate == "true" } {
+											set stopflag 0
+										}                                           
+									}
+								}
+							}
+									
+							ixNet commit 
+							after 1000
+							if { $stopflag == 1 } {
+							Logto -info "router stop $prothandle"
+							   ixNet exec stop $prothandle
+							   after 5000
+							}
+							   
+						}
+					}            
+				} 
+			} else {
+				set protocollist {isis ospf bgp}
+				foreach protocoltype $protocollist {
+					foreach fhport $fhportlist {
+					   
+						set phandle [$fhport cget -handle]
+						set prothandle [ixNet getL $phandle/protocols $protocoltype]
+						Logto -info "protocol handle $prothandle"
+						
+						switch -exact -- $protocoltype {
+							isis {
+								set routerlist [ ixNet getL $prothandle router ]
+								foreach router $routerlist {                           
+									ixNet setA $router -enabled false
+									#ixNet commit                                           
+								}                               
+							}
+							bgp {
+								set routerlist [ ixNet getL $prothandle neighborRange ]
+								foreach router $routerlist { 
+									Logto -info "router handle $router"
+								 
+									ixNet setA $router -enabled false
+								   # ixNet commit    
+		  
+								}
+							}
+							ospf {
+								set routerlist [ ixNet getL $prothandle router ]
+								foreach router $routerlist {
+									Logto -info "router handle $router"                              
+									ixNet setA $router -enabled false
+								   # ixNet commit                                        
+								}
+							}
+						}
+								
+						
+					}
+				}
+				after 2000
+				Tester::stop_router
+			}
 		} else {
-            set protocollist {isis ospf bgp}
-            foreach protocoltype $protocollist {
-                foreach fhport $fhportlist {
-                   
-                    set phandle [$fhport cget -handle]
-                    set prothandle [ixNet getL $phandle/protocols $protocoltype]
-                    Logto -info "protocol handle $prothandle"
-                    
-                    switch -exact -- $protocoltype {
-                        isis {
-                            set routerlist [ ixNet getL $prothandle router ]
-                            foreach router $routerlist {                           
-                                ixNet setA $router -enabled false
-                                #ixNet commit                                           
-                            }                               
-                        }
-                        bgp {
-                            set routerlist [ ixNet getL $prothandle neighborRange ]
-                            foreach router $routerlist { 
-                                Logto -info "router handle $router"
-                             
-                                ixNet setA $router -enabled false
-                               # ixNet commit    
-      
-                            }
-                        }
-                        ospf {
-                            set routerlist [ ixNet getL $prothandle router ]
-                            foreach router $routerlist {
-                                Logto -info "router handle $router"                              
-                                ixNet setA $router -enabled false
-                               # ixNet commit                                        
-                            }
-                        }
-                    }
-                            
-                    
-                }
-            }
-            after 2000
-			Tester::stop_router
+			set device_list [ ::IxiaFH::nstype $device_list ]
+			set dhandle [ $device_list cget -protocolhandle ]
+			if { [ $device_list isa Host ] } {
+				Tester::stop_router 
+			} else {
+				set prostate [ ixNet getA $dhandle -runningState ]
+				Logto -info "router stop $dhandle"
+				ixNet exec stop $dhandle	
+			}
 		}
+		
 	}
 	proc capture_start {args } {
 		set tag "capture_start "
