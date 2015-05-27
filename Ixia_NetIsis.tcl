@@ -17,8 +17,8 @@ class IsisSession {
     method get_fh_stats {} {}
 	method advertise_route { args } {}
 	method withdraw_route { args } {}
+
 	public variable mac_addr
-	public variable protocolhandle
 }
 body IsisSession::constructor { port { pHandle null } {hInterface null} } {
     set tag "body IsisSession::constructor [info script]"
@@ -55,7 +55,6 @@ body IsisSession::reborn { {hInterface null } } {
 			error "$errNumber(1) Port Object in DhcpHost ctor"
 		}
 	Deputs "hPort:$hPort"
-	set protocolhandle "$hPort/protocols/isis"
 	ixNet setA $hPort/protocols/isis -enabled True
 	set handle [ ixNet add $hPort/protocols/isis router ]
 	ixNet commit

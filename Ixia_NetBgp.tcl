@@ -10,7 +10,7 @@
 class BgpSession {
     inherit RouterEmulationObject
  	public variable routeBlock
-    public variable protocolhandle   
+       
     constructor { port { pHandle null } { hInterface null } } {
 
 		set tag "body BgpSession::ctor [info script]"
@@ -41,7 +41,6 @@ Deputs "----- TAG: $tag -----"
 		ixNet setA $hPort/protocols/bgp -enabled True
 			
 		#-- add bgp protocol
-		set protocolhandle "$hPort/protocols/bgp"
 		set handle [ ixNet add $hPort/protocols/bgp neighborRange ]
 		ixNet commit
 		set handle [ ixNet remapIds $handle ]

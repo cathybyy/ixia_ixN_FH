@@ -1835,9 +1835,6 @@ class Host {
 	method enable {} {}
 	method disable {} {}
 	method ping { args } {}
-	method SetSession { session } {
-		set session $session
-	}
 	
 	public variable hPort
 	public variable portObj
