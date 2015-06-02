@@ -2006,9 +2006,12 @@ namespace eval IxiaFH {
 							lappend headlist ${streamobj}ipv4H${headindex}
 						}
 					}
-					-iptosdscp {
+					-iptosdscp_type {
+						set iptosdscp_type $value
+					}
+					-iptosdscp_value {
 						
-						set iptosdscp $value
+						set iptosdscp_value $value
 
 						${streamobj}ipv4H${headindex} config -precedence $value
 						if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
@@ -2079,7 +2082,13 @@ namespace eval IxiaFH {
 				}
 			
 			}
-			
+			if { [info exists iptosdscp_type] && [info exists iptosdscp_value] } {
+				${streamobj}ipv4H${headindex} config -iptdtype $iptosdscp_type -iptdvalue $iptosdscp_value
+				if { [lsearch $headlist ${streamobj}ipv4H${headindex}]!= -1} {
+				} else { 
+						lappend headlist ${streamobj}ipv4H${headindex}
+				}	
+			}
 			if {[info exists srcmac] || [info exists dstmac]} {
 				if {[info exists srcmac] && [info exists dstmac]} {
 					${streamobj}EtherH${headindex} config -src $srcmac -src_num $srcmac_count \

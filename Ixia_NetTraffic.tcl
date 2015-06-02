@@ -2973,7 +2973,7 @@ body Ipv4Hdr::config { args } {
 # Deputs "ipv4 config"
     global errorInfo
     global errNumber
-
+	puts $args
     set tag "body Ipv4Hdr::config [info script]"
 Deputs "----- TAG: $tag -----"
     set EType [ list Fixed Random Incrementing Decrementing List ]
@@ -3298,6 +3298,14 @@ Deputs Step10
 				error "$errNumber(1) key:$key value:$value"
 			 }                    
 			}
+			-iptdvalue {
+				set iptdvalue $value
+				puts "iptdvalue:$iptdvalue"
+			}
+			-iptdtype {
+				set iptdtype $value
+				puts "iptdtype:$iptdtype"
+			}
 			-flag {
 			 if { [ string is integer $value ] && ( $value >= 0 ) && ( $value < 8 ) } {
 				set flagreserved        [ expr $value / 4 ]
@@ -3359,6 +3367,25 @@ Deputs Step50
     SetProtocol IPv4
     #--------------------------
     #-----Config TOS ------
+	if { [ info exists iptdvalue ] && [ info exists iptdtype] } {
+		if { $iptdtype == "tos" } {
+			if { [ string is integer $iptdvalue ] && ( $iptdvalue >= 0 ) && ( $iptdvalue < 16 ) } {
+				set delay       [ expr $iptdvalue / 8 ]
+				set throughput  [ expr ( $iptdvalue - $delay * 8 ) / 4 ]
+				set rely        [ expr ( $iptdvalue - $delay * 8 - $throughput * 4 ) / 2 ]
+				set cost        [ expr ( $iptdvalue - $delay * 8 - $throughput * 4 - $rely * 2 ) ]
+			} else {
+				error "$errNumber(1) key:$key value:$iptdvalue"
+			}             
+		} else {
+			if { [ catch { format %x $iptdvalue } ] == 0 } {
+				set qosval $iptdvalue
+				set qosmode dscp
+			} else {
+				error "$errNumber(1) key:$key value:$iptdvalue"
+			} 
+		}
+	}
     if { [ info exists precedence ] } {
 	   AddField precedence
 	   AddFieldMode Fixed

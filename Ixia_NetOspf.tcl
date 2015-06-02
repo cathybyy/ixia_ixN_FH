@@ -448,11 +448,12 @@ Deputs "Args:$args "
 				set value [string toupper $value]
 				set network_type $value
 			}
-			-option -
 			-options {
 				set options $value
 			}
-		   
+		    -option {
+				set option $value
+			}
 		    -router_dead_interval -
 			-dead_interval {
 				set dead_interval $value
@@ -595,7 +596,7 @@ Deputs "Args:$args "
 		set opt_val [BinToDec $opt_val]
 #		 set opt_val [Int2Hex $opt_val]	
 		set interface [ixNet getL $handle interface]
-		ixNet setA $interface -options $opt_val
+		ixNet setA $interface -routerOptions $opt_val
 		ixNet commit
 	}
 	
@@ -629,6 +630,37 @@ Deputs "Args:$args "
 			ixNet setM $handle -authenticationMethods password \
 				-authenticationPassword $password
         }
+	}
+	if { [ info exists option ] } {
+		switch  $option {
+			1 {
+				set opt 0
+			}
+			2 {
+				set opt 1
+			}
+			3 {
+				set opt 2
+			}
+			4 {
+				set opt 3
+			}
+			5 {
+				set opt 4
+			}
+			6 {
+				set opt 5
+			}
+			7 {
+				set opt 6
+			}
+			8 {
+				set opt 7
+			}
+		}
+		set interface [ixNet getL $handle interface]
+		ixNet setA $interface -options $opt
+		ixNet commit
 	}
     return [GetStandardReturnHeader]
 	
