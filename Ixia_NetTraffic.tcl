@@ -3425,10 +3425,10 @@ Deputs "qosval:$qosval"
 			 }
 		  }
 	   }
-	   AddField raw 1
+	   AddField ds.phb.defaultPHB.defaultPHB 1
 	   AddFieldMode Reserved
 	   AddFieldConfig 0           
-	   AddField raw
+	   AddField ds.phb.defaultPHB.defaultPHB
 	   AddFieldMode Fixed
 	   AddFieldConfig $qosval
     }
