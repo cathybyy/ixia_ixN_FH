@@ -240,6 +240,9 @@ Deputs "caption list:$captionList"
 
 		   set statsItem   "tx_l1_bit_rate"
 		   set statsVal    [ lindex $row $tx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
 		   if {[info exists fhflag]} {
@@ -249,6 +252,9 @@ Deputs "caption list:$captionList"
 		   
 		   set statsItem   "rx_l1_bit_rate"
 		   set statsVal    [ lindex $row $rx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
 		   if {[info exists fhflag]} {
@@ -472,6 +478,9 @@ Deputs "itemview:$itemview"
 
 		   set statsItem   "tx_l1_bit_rate"
 		   set statsVal    [ lindex $row $tx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
 		   if {[info exists fhflag]} {
@@ -481,6 +490,9 @@ Deputs "itemview:$itemview"
 		   
 		   set statsItem   "rx_l1_bit_rate"
 		   set statsVal    [ lindex $row $rx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
 		   if {[info exists fhflag]} {
@@ -634,6 +646,9 @@ Deputs "itemview:$itemview"
 
 		   set statsItem   "tx_l1_bit_rate"
 		   set statsVal    [ lindex $row $itemtx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		  
 		   if {[info exists fhflag]} {
@@ -643,6 +658,9 @@ Deputs "itemview:$itemview"
 		   
 		   set statsItem   "rx_l1_bit_rate"
 		   set statsVal    [ lindex $row $itemrx_l1_bit_rate ]
+		   if {$statsVal == ""} {
+		       set statsVal "NA"
+		   }
 	Deputs "stats val:$statsVal"
 		  
 		   if {[info exists fhflag]} {

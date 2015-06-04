@@ -22,8 +22,8 @@ if { [ catch {
 	puts "load package fail...$err"
 } 
 package req IxiaNet
-IxDebugOn
-IxDebugCmdOn
+IxDebugOff
+IxDebugCmdOff
 
 
 set fhportlist [list]
@@ -466,6 +466,7 @@ namespace eval IxiaFH {
 				}
 				-arp {
 					set arp_enable $value
+					set regenerate $value
 				}
 				default {
 					error "$errNumber(3) key:$key value:$value"
@@ -475,7 +476,7 @@ namespace eval IxiaFH {
         
         set root [ixNet getRoot]
         set temportList [ ixNet getL $root vport ]
-        
+        puts "temportList: $temportList"
         if { $arp_enable } {
             foreach hPort $temportList {
             Logto -info "send arp"
@@ -561,6 +562,7 @@ namespace eval IxiaFH {
         }
 	
 		#-- capture
+		#puts "temportList: $temportList"
 		foreach hPort $temportList {
 			if { [ ixNet getA $hPort/capture    -hardwareEnabled  ] } {
 				set restartCapture 1
@@ -572,7 +574,13 @@ namespace eval IxiaFH {
 		}
         if { $arp_enable } {
             set suspendList [list]
-			puts $txItemList
+			puts "txItemList: $txItemList"
+			if {$txItemList == ""} {
+			    set txItemList $trafficlist
+				set txList $flowlist
+				# puts "txItemList: $txItemList"
+				# puts "txList: $txList"
+			}
 			if { $regenerate } { 
 			    set rg_namelist ""
 				set rg_ratelist ""
@@ -582,7 +590,10 @@ namespace eval IxiaFH {
 				set rg_incrfrom ""
 				set rg_incrstep ""
 				set rg_incrto ""
+				
+				
 			    foreach flow $txList {
+				 
 				    lappend rg_namelist [ ixNet getA $flow -name ]
 					set frame_rate [ ixNet getL $flow frameRate ]
 					lappend rg_ratelist [ ixNet getA $frame_rate -rate ]
@@ -596,6 +607,8 @@ namespace eval IxiaFH {
 					
 					
 				}
+				
+					
 			}
             foreach item $txItemList { 
             puts $item			
@@ -603,18 +616,27 @@ namespace eval IxiaFH {
             }
 			
 			if { $regenerate } { 
-			    set rg_namelist ""
-				set rg_ratelist ""
-				set rg_ratemode ""
-				set rg_sizetype ""
-				set rg_fixedsize ""
-				set rg_incrfrom ""
-				set rg_incrstep ""
-				set rg_incrto ""
-				
-			    foreach flow rgname rgrate rgmode rgsizetype rgfixed rgincrfrom rgincrstep rgincrto  \
-			        $txList $rg_namelist $rg_ratelist $rg_ratemode $rg_sizetype $rg_fixedsize     \
-					$rg_incrfrom $rg_incrstep $rg_incrto  {
+			    set rgname ""
+				set rgrate ""
+				set rgmode ""
+				set rgsizetype ""
+				set rgfixed ""
+				set rgincrfrom ""
+				set rgincrstep ""
+				set rgincrto ""
+			   
+			    foreach flow $txList rgname $rg_namelist rgrate $rg_ratelist rgmode $rg_ratemode \
+				rgsizetype $rg_sizetype rgfixed $rg_fixedsize rgincrfrom $rg_incrfrom \
+				rgincrstep $rg_incrstep rgincrto $rg_incrto {
+					# puts "flow: $flow"
+					# puts "rgname:$rgname"
+				# puts "rgrate:$rgrate" 
+				# puts "rgmode:$rgmode"
+				# puts "rgsizetype:$rgsizetype" 
+				# puts "rgfixed :$rgfixed "
+				# puts "rgincrfrom:$rgincrfrom" 
+				# puts "rgincrstep:$rgincrstep"
+				# puts "rgincrto:$rgincrto"
 				    ixNet setA $flow -name  $rgname
 					set frame_rate [ ixNet getL $flow frameRate ]
 					ixNet setM $frame_rate -type $rgmode  \
@@ -630,6 +652,8 @@ namespace eval IxiaFH {
 					
 					
 				}
+				
+				
 				ixNet commit
 				ixNet commit
 			}
@@ -886,6 +910,7 @@ namespace eval IxiaFH {
 			set result {}
 			set flag 0
             set tempreslist [Tester::getAllStats]
+			#Deputs "tempreslist:$tempreslist"
 			foreach tempres $tempreslist {
 				Deputs "tempres:$tempres"
 				set len [llength $tempres]
