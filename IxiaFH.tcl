@@ -219,10 +219,10 @@ namespace eval IxiaFH {
 						set port_handle [lindex $portlist $index]
 		Logto -info "port_handle: $port_handle"				
 						set portn [lindex $portnamelist $index]
-                        if { [$portn isa Port] } {
-                            $portn Connect $hw_id NULL 0 $port_handle
-                        } else {
+                        if { $loadflag } {
 						    Port $portn $hw_id NULL $port_handle
+                        } else {
+                            $portn Connect $hw_id NULL 0 $port_handle
                         }
 						incr index
 					} else {
