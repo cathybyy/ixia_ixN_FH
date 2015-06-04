@@ -22,8 +22,8 @@ if { [ catch {
 	puts "load package fail...$err"
 } 
 package req IxiaNet
-IxDebugOff
-IxDebugCmdOff
+IxDebugOn
+IxDebugCmdOn
 
 
 set fhportlist [list]
@@ -489,7 +489,7 @@ namespace eval IxiaFH {
         # set txlist
         set txList ""
         set txItemList ""
-        if { [info exists port_list ] } {			                
+        if { [info exists port_list ] } {
             foreach portobj $port_list {
                 if { [regexp {(.+)\*} $portobj a pname ]} {
 			
@@ -512,7 +512,7 @@ namespace eval IxiaFH {
                     }
                 
                 } else { 	
-              				
+
                     set phandle [$portobj cget -handle]
                     foreach flow $flowlist {                                    
                         set txPort [ ixNet getA $flow -txPortId ] 
@@ -533,7 +533,7 @@ namespace eval IxiaFH {
             }
         }
 			
-        if { [info exists streamblock ] } {           
+        if { [info exists streamblock ] } {  
             foreach streamobj $streamblock {
                 if { [regexp {(.+)\*} $streamobj a stream ]} {
                     foreach sobj $flownamelist {
@@ -723,6 +723,7 @@ namespace eval IxiaFH {
             return 1								
 			
 		} else {
+			puts "1111111"
 			Tester::start_traffic 1 1
 			return 1
 		}

@@ -1914,6 +1914,7 @@ Deputs "caption list:$captionList"
 		   if {[info exists fhflag]} {
 			   set statitem ${fhflag}TxFrameCount
 			   lappend fhlist $statitem $statsVal
+			   set tx_count $statsVal
 		   }
 			
 		   set statsItem   "rx_frame_count"
@@ -1923,93 +1924,10 @@ Deputs "caption list:$captionList"
 		   if {[info exists fhflag]} {
 			   set statitem ${fhflag}RxFrameCount
 			   lappend fhlist $statitem $statsVal
+			   set rx_count $statsVal
 		   }
-				
-		   set statsItem   "avg_jitter"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-				  
-		   set statsItem   "avg_latency"
-		   set statsVal    [ lindex $row $aveLatencyIndex ]
-			#-- adjust to us
-			if { $statsVal == "" } {
-				set statsVal	"NA"
-			} else {
-				set statsVal 	[ expr $statsVal / 1000 ] 
-			}
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}avgLatenvy
-			   lappend fhlist $statitem $statsVal
-		   }
-		   
-		   set statsItem   "duplicate_frame_count"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-			
-		   set statsItem   "in_order_frame_count"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-			
-		   set statsItem   "max_jitter"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-			
-		   set statsItem   "max_latency"
-		   set statsVal    [ lindex $row $maxLatencyIndex ]
-			#-- adjust to us
-			if { $statsVal == "" } {
-				set statsVal	"NA"
-			} else {
-				set statsVal 	[ expr $statsVal / 1000 ] 
-			}
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}maxLatency
-			   lappend fhlist $statitem $statsVal
-		   }
-		   
-		   set statsItem   "min_jitter"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-			
-		   set statsItem   "min_latency"
-		   set statsVal    [ lindex $row $minLatencyIndex ]
-			#-- adjust to us
-			if { $statsVal == "" } {
-				set statsVal	"NA"
-			} else {
-				set statsVal 	[ expr $statsVal / 1000 ] 
-			}
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}minLatency
-			   lappend fhlist $statitem $statsVal
-		   }
-		   
-		   set statsItem   "out_seq_frame_count"
-		   set statsVal    "NA"
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   
-		   set statsItem   "first_arrival_time"
-		   set statsVal    [ lindex $row $firstArrivalIndex ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   
-		   set statsItem   "last_arrival_time"
-		   set statsVal    [ lindex $row $lastArrivalIndex ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   
+
+
 		   set statsItem   "tx_frame_rate"
 		   set statsVal    [ lindex $row $txFrameRateIndex ]
 	Deputs "stats val:$statsVal"
@@ -2028,6 +1946,152 @@ Deputs "caption list:$captionList"
 			   lappend fhlist $statitem $statsVal
 		   }
 		   
+		   set statsItem   "tx_l1_bit_rate"
+		   set statsVal    [ lindex $row $tx_l1_bit_rate ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}TxL1BitRate
+			   lappend fhlist $statitem $statsVal
+		   }
+		   
+		   set statsItem   "rx_l1_bit_rate"
+		   set statsVal    [ lindex $row $rx_l1_bit_rate ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}RxL1BitRate
+			   lappend fhlist $statitem $statsVal
+		   }
+
+		   
+		   set statsItem   "tx_l2_bit_rate"
+		   set statsVal    [ lindex $row $txBitRateIndex ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}TxL2BitRate
+			   lappend fhlist $statitem $statsVal
+		   }
+		   
+		   set statsItem   "rx_l2_bit_rate"
+		   set statsVal    [ lindex $row $rxBitRateIndex ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}RxL2BitRate
+			   lappend fhlist $statitem $statsVal
+		   }
+
+		   set statsItem   "min_latency"
+		   set statsVal    [ lindex $row $minLatencyIndex ]
+			#-- adjust to us
+			if { $statsVal == "" } {
+				set statsVal	"NA"
+			} else {
+				set statsVal 	[ expr $statsVal / 1000 ] 
+			}
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}minLatency
+			   lappend fhlist $statitem $statsVal
+		   }
+
+		   set statsItem   "max_latency"
+		   set statsVal    [ lindex $row $maxLatencyIndex ]
+			#-- adjust to us
+			if { $statsVal == "" } {
+				set statsVal	"NA"
+			} else {
+				set statsVal 	[ expr $statsVal / 1000 ] 
+			}
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}maxLatency
+			   lappend fhlist $statitem $statsVal
+		   }
+		   
+		   set statsItem   "avg_latency"
+		   set statsVal    [ lindex $row $aveLatencyIndex ]
+			#-- adjust to us
+			if { $statsVal == "" } {
+				set statsVal	"NA"
+			} else {
+				set statsVal 	[ expr $statsVal / 1000 ] 
+			}
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}avgLatenvy
+			   lappend fhlist $statitem $statsVal
+		   }
+		   
+
+		   set statsItem   "min_jitter"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}minJitter
+			   lappend fhlist $statitem $statsVal
+		   }			
+
+		   		   
+		   set statsItem   "max_jitter"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+			if {[info exists fhflag]} {
+			set statitem ${fhflag}maxJitter
+			lappend fhlist $statitem $statsVal
+		   }
+
+		   set statsItem   "avg_jitter"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   if {[info exists fhflag]} {
+			   set statitem ${fhflag}avgJitter
+			   lappend fhlist $statitem $statsVal
+		   }				  
+
+			set statsItem  "DroppedCount"
+			set statsVal   [expr $tx_count - $rx_count]
+			if { [ info exists fhflag ] } {
+				set statitem ${fhflag}DroppedCount
+				lappend fhlist $statitem $statsVal
+			}
+
+			
+		   set statsItem   "duplicate_frame_count"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+			
+		   set statsItem   "in_order_frame_count"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+			
+		   
+		   set statsItem   "out_seq_frame_count"
+		   set statsVal    "NA"
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   
+		   set statsItem   "first_arrival_time"
+		   set statsVal    [ lindex $row $firstArrivalIndex ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   
+		   set statsItem   "last_arrival_time"
+		   set statsVal    [ lindex $row $lastArrivalIndex ]
+	Deputs "stats val:$statsVal"
+		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
+		   
+
 		   set statsItem   "tx_byte_rate"
 		   set statsVal    [ lindex $row $txByteRateIndex ]
 	Deputs "stats val:$statsVal"
@@ -2049,41 +2113,6 @@ Deputs "caption list:$captionList"
 	Deputs "stats val:$statsVal"
 		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
 
-		   set statsItem   "tx_l2_bit_rate"
-		   set statsVal    [ lindex $row $txBitRateIndex ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}TxL2BitRate
-			   lappend fhlist $statitem $statsVal
-		   }
-		   
-		   set statsItem   "rx_l2_bit_rate"
-		   set statsVal    [ lindex $row $rxBitRateIndex ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}RxL2BitRate
-			   lappend fhlist $statitem $statsVal
-		   }
-
-		   set statsItem   "tx_l1_bit_rate"
-		   set statsVal    [ lindex $row $tx_l1_bit_rate ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}TxL1BitRate
-			   lappend fhlist $statitem $statsVal
-		   }
-		   
-		   set statsItem   "rx_l1_bit_rate"
-		   set statsVal    [ lindex $row $rx_l1_bit_rate ]
-	Deputs "stats val:$statsVal"
-		   set ret $ret[ GetStandardReturnBody $statsItem $statsVal ]
-		   if {[info exists fhflag]} {
-			   set statitem ${fhflag}RxL1BitRate
-			   lappend fhlist $statitem $statsVal
-		   }
 
 	#Deputs "ret:$ret"
 	       set ssflag 1
