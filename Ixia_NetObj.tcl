@@ -437,7 +437,9 @@ class RouteBlock {
 	public variable type
 	public variable active
 	public variable up_device
-	
+	public variable metric_lsa
+	public variable metric_route
+	public variable route_type
 	constructor {} {
 		set num 1
 		set step 1
@@ -462,6 +464,7 @@ Deputs "Args:$args "
     foreach { key value } $args {
         set key [string tolower $key]
         switch -exact -- $key {
+			-ip_count -
 		    -route_count -
             -num {
             	set num $value
@@ -491,6 +494,14 @@ Deputs "Args:$args "
 			}
 			-metric_lsa {
 				set metric_lsa $value
+			}
+			-route_type {
+				set route_type $value
+				if { $route_type == "external" } {
+					set route_type 1
+				}  else {
+					set route_type  0
+				}	
 			}
         }
     }

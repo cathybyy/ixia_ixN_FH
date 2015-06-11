@@ -64,7 +64,7 @@ Deputs "----- TAG: $tag -----"
 			Deputs "hInterface:$hInterface"
 			set rb_interface  [ ixNet add $handle interface ]
 			ixNet setM $rb_interface \
-				-interfaces $interface \
+				-interfaces $hInterface \
 				-connectedToDut True \
 				-enabled True
 			ixNet commit
@@ -411,11 +411,10 @@ body OspfSession::config { args } {
 	
     global errorInfo
     global errNumber
-	
 	set area_id "0.0.0.0"
 	set hello_interval 10
 	set if_cost 1
-	set network_type "native"
+	set network_type "broadcast"
 	set options "v6bit | rbit | ebit"
 	set router_dead_interval 40
 	
@@ -423,6 +422,7 @@ body OspfSession::config { args } {
 	set ipv6_prefix_len 64
 	set ipv6_gw 3ffe:3210::1
 	set intf_num 1
+	set active 0
 	
     set tag "body OspfSession::config [info script]"
 Deputs "----- TAG: $tag -----"
@@ -432,6 +432,7 @@ Deputs "Args:$args "
     foreach { key value } $args {
         set key [string tolower $key]
         switch -exact -- $key {
+			-ospf_id -
             -router_id {
 				set router_id $value
 			}
@@ -480,12 +481,15 @@ Deputs "Args:$args "
 			-password {
 				set password $value
 			}
+			-active {
+				set active $value
+			}
         }
     }
 	ixNet setA $handle -enabled True
 	puts "handle:$handle"
 	if { [ info exists graceful_restart ] } {
-		if { graceful_restart } {
+		if { $graceful_restart } {
 			ixNet setA $handle -gracefulRestart true
 		} else {
 			ixNet setA $handle -gracefulRestart false
@@ -497,18 +501,19 @@ Deputs "Args:$args "
 		ixNet commit
 	}	
 	if { [ info exists area_id ] } {
-		if {[ixNet getA $hPort/protocols/ospf -enabled]} {
-			set attri "-areaId"
-		} elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
-			set attri "-area"
-		} else {
-			error "area id setting error"
-		}
+		# if {[ixNet getA $hPort/protocols/ospf -enabled]} {
+			# set attri "-areaId"
+		# } elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
+			# set attri "-area"
+		# } else {
+			# error "area id setting error"
+		# }
 		set id_hex [IP2Hex $area_id]			
 		set area_id [format %i 0x$id_hex]
 		puts "interface:$interface"
 		set interface [ixNet getL $handle interface]
-		ixNet setA $interface $attri $area_id
+		ixNet setA $interface -areaId $area_id
+		#ixNet setA $interface -area $area_id
 		ixNet commit
 	}
 	if { [ info exists hello_interval ] } {
@@ -517,15 +522,16 @@ Deputs "Args:$args "
 		ixNet commit
 	}
 	if { [ info exists if_cost ] } {
-		if {[ixNet getA $hPort/protocols/ospf -enabled]} {
-			set attri "-metric"
-		} elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
-			set attri "-linkMetric"
-		} else {
-			error "metric setting error"
-		}		
+		# if {[ixNet getA $hPort/protocols/ospf -enabled]} {
+			# set attri "-metric"
+		# } elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
+			# set attri "-linkMetric"
+		# } else {
+			# error "metric setting error"
+		# }		
 		set interface [ixNet getL $handle interface]
-		ixNet setA $interface $attri $if_cost
+		ixNet setA $interface -metric $if_cost
+		#ixNet setA $interface -linkMetric $if_cost
 		ixNet commit
 	}
 	
@@ -545,15 +551,17 @@ Deputs "Args:$args "
 				set network_type pointToPoint
 			}
 		}
-		if {[ixNet getA $hPort/protocols/ospf -enabled]} {
-			set attri "-networkType"
-		} elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
-			set attri "-interfaceType"
-		} else {
-			error "network type setting error"
-		}
+		# if {[ixNet getA $hPort/protocols/ospf -enabled]} {
+			# set attri "-networkType"
+		# } elseif {[ixNet getA $hPort/protocols/ospfV3 -enabled]} {
+			# set attri "-interfaceType"
+		# } else {
+			# error "network type setting error"
+		# }
+		puts "networktype:$network_type"
 		set interface [ixNet getL $handle interface]
-		ixNet setA $interface $attri $network_type
+		ixNet setA $interface -networkType $network_type
+		#ixNet setA $interface -interfaceType $network_type
 		ixNet commit
 	}
 	
@@ -622,46 +630,55 @@ Deputs "Args:$args "
 		ixNet commit
 	}
 	if { [ info exists authentication ] } {
+		set interface [ixNet getL $handle interface]
 		if { $authentication == "md5" } {
-			ixNet setM $handle -authenticationMethods MD5 
-		#		-authenticationPassword $md5_keyid
+			ixNet setM $interface -authenticationMethods md5 
+				-md5AuthenticationKeyId $md5_keyid
         }
-		if { $authentication == "password" } {
-			ixNet setM $handle -authenticationMethods password \
+		if { $authentication == "simple" } {
+			ixNet setM $interface -authenticationMethods password \
 				-authenticationPassword $password
         }
 	}
 	if { [ info exists option ] } {
 		switch  $option {
 			1 {
-				set opt 0
-			}
-			2 {
 				set opt 1
 			}
-			3 {
+			2 {
 				set opt 2
 			}
-			4 {
+			3 {
 				set opt 3
 			}
-			5 {
+			4 {
 				set opt 4
 			}
-			6 {
+			5 {
 				set opt 5
 			}
-			7 {
+			6 {
 				set opt 6
 			}
-			8 {
+			7 {
 				set opt 7
+			}
+			8 {
+				set opt 0
 			}
 		}
 		set interface [ixNet getL $handle interface]
 		ixNet setA $interface -options $opt
 		ixNet commit
 	}
+	if { [ info exists active ] } {
+		if { $active } {
+			ixNet setA $handle -enabled true
+		} else {
+			ixNet setA $handle -enabled false
+		} 
+	}
+	ixNet commit
     return [GetStandardReturnHeader]
 	
 }
@@ -694,6 +711,7 @@ Deputs "Args:$args "
 			set prefix_len 	[ $rb cget -prefix_len ]
 			set start 		[ $rb cget -start ]
 			set active      [ $rb cget -active]	
+			set metric_lsa  [ $rb cget -metric_lsa]
 			if { [lsearch $routeBlock(obj) $rb] == -1 } {
 			    set hRouteBlock [ ixNet add $handle routeRange ]
 				ixNet commit
@@ -706,10 +724,12 @@ Deputs "Args:$args "
 		puts "hRouteBlock: $hRouteBlock"	
 		puts "$num; $start; $prefix_len; $step"
 			ixNet setM $hRouteBlock \
-				-numOfRoutes $num \
+				-numberOfRoutes $num \
 				-origin $origin \
+				-networkNumber $start \
 				-mask $prefix_len \
-				-enabled $active
+				-enabled $active \
+				-metric $metric_lsa
 			ixNet commit
 		}
 	}

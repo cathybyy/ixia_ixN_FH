@@ -91,6 +91,7 @@ body BgpSession::config { args } {
     set tag "body BgpSession::config [info script]"
 Deputs "----- TAG: $tag -----"
 	set hold_time_interval 10
+	set active 0
 #param collection
     
 Deputs "Args:$args "
@@ -154,7 +155,7 @@ Deputs "Args:$args "
 				set bgp_id $value
 			}
 			-active {
-				set enabled $value
+				set active $value
 			}
 			-authentication {
 				set authentication $value
@@ -222,10 +223,13 @@ Deputs "not implemented parameter: safi"
 	if { [ info exists bgp_id ] } {
 		ixNet setA $handle -bgpId $bgp_id
 	}
-	if { [ info exists enabled ] } {
-		ixNet setA $handle -enabled $enabled
+	if { [ info exists active ] } {
+		if { $active } {
+			ixNet setA $handle -enabled true
+		} else {
+			ixNet setA $handle -enabled false
+		}
 	}
-	
 	ixNet commit
     return [GetStandardReturnHeader]	
 	

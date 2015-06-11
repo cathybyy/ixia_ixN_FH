@@ -84,7 +84,7 @@ body IsisSession::reborn { {hInterface null } } {
 	}
 	set rb_interface  [ ixNet add $handle interface ]
 	ixNet setM $rb_interface \
-	    -interfaceId $interface \
+	    -interfaceId $hInterface \
 	    -enableConnectedToDut True \
 	    -enabled True
 	ixNet commit
@@ -100,8 +100,10 @@ body IsisSession::reborn { {hInterface null } } {
 body IsisSession::config { args } {
     set tag "body IsisSession::config [info script]"
 Deputs "----- TAG: $tag -----"
-	
-	set sys_id "64:01:00:01:00:00"
+	set active 0
+	set metric_type "NW"
+	set area_id1 "00.0001"
+	#set sys_id "64:01:00:01:00:00"
 # in case the handle was removed
     if { $handle == "" } {
 	    reborn
@@ -168,15 +170,26 @@ Deputs "wrong mac addr: $value"
 				
 			}
 			-active {
-				set enabled $value
+				set active $value
 			}
 			-router_pri {
+			    set route_pri $value
 			}
 			-area_id1 {
+				set area_id1 $value
+                set area_id1 [ string replace $area_id1 2 2 "" ]
+				set areaList [ list ]
+				lappend areaList $area_id1
+				puts "areaList $areaList"
 			}
 			-area_id2 {
+				set area_id2 $value
+				set area_id2 [ string replace $area_id2 2 2 "" ]
+				lappend areaList $area_id2
+				puts "areaList $areaList"
 			}
-			-metri_type {
+			-metric_type {
+				set metric_type $value
 			}
 			-max_lspsize {
 				set max_lspsize $value
@@ -190,10 +203,10 @@ Deputs "wrong mac addr: $value"
 			-isis_md5_keyid {
 				set isis_md5_keyid $value
 			}
-			-password {
+			-area_password {
 				set password $value
 			}
-			-md5_keyid {
+			-area_md5_keyid {
 				set md5_keyid $value
 			}
 			-area_authentication {
@@ -202,10 +215,34 @@ Deputs "wrong mac addr: $value"
 			-domain_authentication {
 				set domain_authentication $value
 			}
+			-domain_password {
+				set password $value
+			}
+			-domain_md5_keyid {
+				set md5_keyid $value
+			}
 			
 		}
     }
-	
+	if { [ info exists area_id1 ] || [ info exists area_id2 ] } {
+		set areaList [ list ]
+		if { [ info exists area_id1 ] } {
+			set area_id1 [ string replace $area_id1 2 2 "" ]
+			lappend areaList $area_id1
+			puts "areaList $areaList"
+		}
+		if { [ info exists area_id2 ] } {
+			set area_id2 [ string replace $area_id2 2 2 "" ]
+			lappend areaList $area_id2
+			puts "areaList $areaList"
+		}
+		ixNet setA $handle -areaAddressList $areaList
+	}
+	if { [ info exists metric_type ] } {
+		if { $metric_type == "NW" || $metric_type == "W"} {
+			ixNet setA $handle -enableWideMetric true
+		}
+	}
     if { [ info exists sys_id ] } {
 		while { [ ixNet getF $hPort/protocols/isis router -systemId "[ split $sys_id : ]"  ] != "" } {
 Deputs "sys_id: $sys_id"		
@@ -215,22 +252,46 @@ Deputs "sys_id: $sys_id"
 	    ixNet setA $handle -systemId $sys_id
     }
     if { [ info exists network_type ] } {
+		set interface [ixNet getL $handle interface]
 	    ixNet setA $interface -networkType $network_type
     }
     if { [ info exists discard_lsp ] } {
     	ixNet setA $handle -enableDiscardLearnedLsps $discard_lsp
     }
 	if { [ info exists level_type ] } {
+		set interface [ixNet getL $handle interface]
+		switch -exact -- $level_type {
+			-L1 {
+				set level_type level1
+			}
+			-L2 {
+				set level_type level2
+				}
+			-L12 {
+				set level_type level1Level2
+			}
+		}
     	ixNet setA $interface -level $level_type
     }
+	if { [info exists router_pri ] } {
+		set interface [ixNet getL $handle interface]
+		if { $level_type == "level1" } {
+			ixNet setA $interface -priorityLevel1 $router_pri
+		} else {
+			ixNet setA $interface -priorityLevel2 $router_pri
+		}
+	}
 	
     if { [ info exists metric ] } {
+		set interface [ixNet getL $handle interface]
 	    ixNet setA $interface -metric $metric
     }
     if { [ info exists hello_interval ] } {
+		set interface [ixNet getL $handle interface]
 	    ixNet setA $interface -level1HelloTime $hello_interval
     }
     if { [ info exists dead_interval ] } {
+		set interface [ixNet getL $handle interface]
 	    ixNet setA $interface -level1DeadTime $dead_interval
     }
     if { [ info exists vlan_id ] } {
@@ -247,34 +308,49 @@ Deputs "sys_id: $sys_id"
 Deputs "interface:$interface mac_addr:$mac_addr"
 		ixNet setA $interface/ethernet -macAddress $mac_addr
 	}
-	if { [ info exists enabled ] } {
-		ixNet setA $handle -enabled $enabled
-	}
 	if { [ info exists max_lspsize ] } {
 		ixNet setA $handle -lspMaxSize $max_lspsize
 	}
 	if { [ info exists isis_authentication ] } {
-		ixNet setM $handle -
+		set interface [ixNet getL $handle interface]
+		if { $isis_authentication == "md5" } {
+			ixNet setM $interface -circuitAuthType md5 \
+				-circuitTransmitPassword $isis_md5_keyid
+        }
+		if { $isis_authentication == "simple" } {
+			ixNet setM $interface -circuitAuthType password \
+				-circuitTransmitPassword $isis_password
+        } 
 	}
 	if { [ info exists area_authentication ] } {
 		if { $area_authentication == "md5" } {
 			ixNet setM $handle -areaAuthType MD5 \
-				-areaTransmitPassword $md5_keyid
+				-areaTransmitPassword $area_md5_keyid
         }
-		if { $area_authentication == "password" } {
+		if { $area_authentication == "simple" } {
 			ixNet setM $handle -areaAuthType password \
-				-areaTransmitPassword $password
+				-areaTransmitPassword $area_password
         }
 	}
 	if { [ info exists domain_authentication ] } {
 		if { $domain_authentication == "md5" } {
 			ixNet setM $handle -domainAuthType MD5 \
-				-domainTransmitPassword $md5_keyid
+				-domainTransmitPassword $domian_md5_keyid
         }
-		if { $domain_authentication == "password" } {
+		if { $domain_authentication == "simple" } {
 			ixNet setM $handle -domainAuthType password \
-				-domainTransmitPassword $password
+				-domainTransmitPassword $domian_password
         }
+	}
+	# if { [ info exists areaList ] } {
+		# ixNet setA $handle -areaAddressList $areaList
+	# }
+	if { [ info exists active ] } {
+		if { $active } {
+			ixNet setA $handle -enabled true
+		} else {
+			ixNet setA $handle -enabled false
+		}
 	}
     ixNet commit
 }
@@ -317,7 +393,8 @@ Deputs "Args:$args "
 		set start 		[ $rb cget -start ]
 		set type 		[ $rb cget -type ] 
 		set active      [ $rb cget -active]
-			
+		set metric_route   [ $rb cget -metric_route ]
+		set route_type  [ $rb cget -route_type ]
 		if { [lsearch $routeBlock(obj) $rb] == -1 } {
 			set hRouteBlock [ ixNet add $handle routeRange ]
 			ixNet commit
@@ -332,9 +409,11 @@ Deputs "Args:$args "
 		puts "$num; $type; $start; $prefix_len; $step"
 			ixNet setM $hRouteBlock \
 				-numberOfRoutes $num \
-				-type $type \
+				-firstRoute $start \
+				-routeOrigin $route_type \
 				-maskWidth $prefix_len \
-				-enabled $active
+				-enabled $active \
+				-metric $metric_route
 			ixNet commit
 		}
 	}

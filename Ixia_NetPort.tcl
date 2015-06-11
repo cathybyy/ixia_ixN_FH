@@ -1829,6 +1829,7 @@ Deputs "unitLoad : $unitLoad"
 
 }
 class Host {
+	public variable Session
 	inherit NetObject
 	constructor { port } {}
 	method config { args } {}
@@ -1836,7 +1837,7 @@ class Host {
 	method disable {} {}
 	method ping { args } {}
 	method SetSession { session } {
-		set session $session
+		set Session $session
 	}
 	
 	public variable hPort
@@ -1844,6 +1845,8 @@ class Host {
 	public variable ipv4Addr
 	public variable ipv4Step
 	public variable ipv4Count
+	public variable macAddr
+
 }
 
 body Host::constructor { port } {
@@ -1869,7 +1872,7 @@ body Host::config { args } {
 Deputs "----- TAG: $tag -----"
 	
 	set count 			1
-	set src_mac			"00:10:94:00:00:01"
+	#set src_mac			"00:10:94:00:00:01"
 	set src_mac_step	"00:00:00:00:00:01"
 	set vlan_id1_step	0
 	set vlan_id2_step	0
@@ -1879,10 +1882,11 @@ Deputs "----- TAG: $tag -----"
 	set ipv4_prefix_len	24
 	set ipv4_gw			192.85.1.1
 	set ipv4_addr       192.85.1.3
-	set ipv6_addr		"2000::2"
-	set ipv6_addr_step	::1
-	set ipv6_prefix_len	64
-	set ipv6_gw			2000::1
+	set ipv4Addr        192.85.1.3
+	# set ipv6_addr		"2000::2"
+	# set ipv6_addr_step	::1
+	# set ipv6_prefix_len	64
+	# set ipv6_gw			2000::1
 	set ip_version		ipv4
 	set enabled 		True
 	set static          0
@@ -1905,6 +1909,7 @@ Deputs "----- TAG: $tag -----"
 				} else {
 				    set src_mac [MacTrans $value]
 				}
+				set macAddr $src_mac
             }
             -src_mac_step {
 				set src_mac_step $value
@@ -1987,6 +1992,7 @@ Deputs "pfxIncr:$pfxIncr"
 	# }
 	
 	if { $static } {
+	Deputs "static is enabled"
 	    if {$handle == ""} {
 		    set handle [ixNet add $hPort/protocols/static lan]
 		}
@@ -2042,6 +2048,7 @@ Deputs "pfxIncr:$pfxIncr"
 		ixNet commit
 	} else {
 	    if {[ info exists ipv4_addr ] && [ IsSameNetwork $ipv4_addr $ipv4_gw $ipv4_prefix_len ] == 0 } {
+		Deputs "ipv4 and gateway is not in same network"
 		    
 		    set intList [ ixNet getL $hPort interface ]
 			set conInt ""
@@ -2069,13 +2076,17 @@ Deputs "pfxIncr:$pfxIncr"
 			}				
 		
 		} else {
-		
+		    Deputs "add interface"
+			Deputs "count: $count"
 			for { set index 0 } { $index < $count } { incr index } {
+			    Deputs "handle: $handle"
 			    if { $handle == "" } {
+				Deputs "hPort:$hPort"
 					set int [ ixNet add $hPort interface ]
 					# ixNet setA $int -enabled True
 					ixNet commit
 					set int [ixNet remapIds $int]
+					Deputs "int:$int"
 					ixNet setA $int -description $this
 					ixNet commit
 					set handle $int
@@ -2146,7 +2157,6 @@ Deputs "pfxIncr:$pfxIncr"
 					ixNet commit
 					incr vlan_id2 $vlan_id2_step
 				}
-				
 	Deputs "enable interface"
 				if { [ info exists enabled ] } {
 					ixNet setA $int -enabled $enabled

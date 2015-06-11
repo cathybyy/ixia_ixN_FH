@@ -33,6 +33,7 @@ set pppoeclientlist [list]
 set pppoeserverlist [list]
 set trafficinfo {}
 set loadflag 0
+set deviceList [list]
 
 namespace eval IxiaFH {
    namespace export *
@@ -124,7 +125,8 @@ namespace eval IxiaFH {
 		Logto -info "----- TAG: $tag -----"
         global errNumber
 		global loadflag
-	   
+	    global deviceList
+		global hostlist
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
@@ -139,6 +141,8 @@ namespace eval IxiaFH {
 		
 		Login
 		
+		set deviceList ""
+		set hostlist ""
 		if { [ info exists configfile ] } {
 			loadconfig $configfile
 			set loadflag 1
@@ -1124,8 +1128,12 @@ namespace eval IxiaFH {
 					lappend trafficinfo [list $thandle $portn $rxportlist ]
 					lappend flownamelist $tname
 					lappend flowlist $fhandle 
-					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-					traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+					EtherHdr ${name}EtherH${headindex} 
+					Ipv4Hdr ${name}ipv4H${headindex}
+					${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
+					${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					
+					# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+					# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 				  } else {
 				   
 				    set thandle ""
@@ -1146,10 +1154,12 @@ namespace eval IxiaFH {
 					   lappend trafficinfo [list $thandle $portn $rxportlist ] 
 					   lappend flownamelist $tname
 					   lappend flowlist $fhandle 
-					    traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 
-						#-srcmac_count 1  -srcmac_type increment -srcmac_step 00:00:00:00:00:01 -dstmac_count 1 -dstmac_type increment  -dstmac_step 00:00:00:00:00:01
-						traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1
-					    #-srcip_count 1  -srcip_type increment -srcip_step  0.0.0.1 -dstip_count 1  -dstip_type increment  -dstip_step 0.0.0.1
+						EtherHdr ${name}EtherH${headindex} 
+						Ipv4Hdr ${name}ipv4H${headindex}
+						${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
+						${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					   
+					    # traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 						
+						# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1
 					} else {
 				       puts "trafficinfo get thandle :$thandle"
 					   Flow $tname $portn "NULL" $thandle 
@@ -1159,8 +1169,12 @@ namespace eval IxiaFH {
 					   lappend flownamelist $tname
 					   lappend flowlist $fhandle
 					   puts $name
-						traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-						traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+						EtherHdr ${name}EtherH${headindex} 
+						Ipv4Hdr ${name}ipv4H${headindex}
+						${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
+						${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					   
+						# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+						# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 				  }
 				
@@ -1178,8 +1192,12 @@ namespace eval IxiaFH {
 					lappend flownamelist [ixNet getA $fhandle -name]
 					Deputs "fname: $flownamelist"
 					lappend flowlist $fhandle
-					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-					traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+					EtherHdr ${name}EtherH${headindex} 
+					Ipv4Hdr ${name}ipv4H${headindex}
+					${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
+					${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1
+					# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+					# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 		   
 				}
@@ -1187,8 +1205,12 @@ namespace eval IxiaFH {
 			    Traffic $tname $portn 
 				lappend trafficnamelist $tname
                 lappend trafficlist [$tname cget -handle]
-				traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-				traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+				EtherHdr ${name}EtherH${headindex} 
+				Ipv4Hdr ${name}ipv4H${headindex}
+				${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
+				${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1
+				#traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
+				#traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
 			}		
 			 			
 		    after 15000 
@@ -1206,6 +1228,8 @@ namespace eval IxiaFH {
 		set tag "device_create "
 		Logto -info "----- TAG: $tag -----"
         global errNumber
+		global deviceList
+		global hostlist
         set len [llength $args]
 		puts $len
 		set arg [lindex $args 0]
@@ -1247,17 +1271,25 @@ namespace eval IxiaFH {
 			set obj_type [ string tolower $obj_type]
             switch -exact -- $obj_type {
 			    device {
+			
 				    Host $hostName $portn
+					lappend hostlist $hostName
+					if { $flag ==0 } {
+						$hostName config -count 1
+					}
+					
 				}
 				device.ospfv2 {
 				    set ospfInt     [ $hostName cget -handle    ]
+					set ospfID      [ $hostName cget -ipv4Addr  ]
 					puts "ospfInt: $ospfInt"
 					set session [ lindex [split $name "."] 1 ]
 					set session [ ::IxiaFH::nstype $session  ] 
 					puts "session:$session"
 					eval OspfSession $lastName $portn "null" $ospfInt 
 					$hostName SetSession $session
-					$lastName config -network_type broadcast     
+					$lastName config -ospf_id $ospfID
+					lappend deviceList $lastName
 				}
 				device.ospfv2.netsummarylsa {
 					set UpDevice [ lindex [split $name "."] 1 ]
@@ -1266,7 +1298,8 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -active 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_lsa 1	
-					eval device_config $args
+					set origin sameArea
+					$UpDevice set_route -route_block $lastName -origin $origin	
 				}
 				device.ospfv2.externalsa {
 					set UpDevice [ lindex [split $name "."] 1 ]
@@ -1275,17 +1308,24 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -active 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_lsa 1	
-					eval device_config $args
+					set origin externalType1
+					#set origin externalType2
+					$UpDevice set_route -route_block $lastName -origin $origin
+					
 				}
 				device.isis {
 					set isisInt     [ $hostName cget -handle    ]
 					puts "isisInt: $isisInt"
+					set isisID      [ $hostName cget -ipv4Addr  ]
 					set session [ lindex [split $name "."] 1 ]
 					set session [ ::IxiaFH::nstype $session  ] 
 					puts "session:$session"
 					$hostName SetSession $session
+					set sys_id      [ $hostName cget -macAddr ]
+					puts "macAddr:$sys_id"
 					eval IsisSession $lastName $portn "null" $isisInt
-					$lastName config -network_type broadcast -metric 1 -hello_interval 10 -dead_interval 30 -max_lspsize 1492 -lsp_refresh 900 
+					$lastName config -sys_id $sys_id -network_type broadcast -metric 1 -hello_interval 10 -dead_interval 30 -max_lspsize 1492 -lsp_refresh 900 -isis_id $isisID
+					lappend deviceList $lastName
 				}
 				device.isis.isis_ipv4route {
 					set UpDevice [ lindex [split $name "."] 1 ]
@@ -1294,7 +1334,7 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -active 1 -route_type internal -route_count 1 -start_ip 192.0.1.0 -prefix_len 24 -metric_route 1
-					eval device_config $args
+					$UpDevice set_route -route_block $lastName
 				}
 				device.isis.isis_ipv6route {
 					set UpDevice [ lindex [split $name "."] 1 ]
@@ -1303,7 +1343,7 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -active 1 -route_type internal -route_count 1 -start_ip 2001::0 -prefix_len 64 -metric_route 1
-					eval device_config $args
+					$UpDevice set_route -route_block $lastName
 				}
 				device.bgp {				 				
 					set bgpInt     [ $hostName cget -handle    ]
@@ -1314,7 +1354,8 @@ namespace eval IxiaFH {
 					$hostName SetSession $session
 				    BgpSession $lastName $portn "null" $bgpInt
 					eval $lastName config  -bgp_id $bgpID -as_num 1 \
-					    -bgp_type "ebgp" -hold_time 10
+					    -bgp_type "ebgp" -hold_time 10 -dut_ip 192.1.1.1
+					lappend deviceList $lastName
 				}
 				device.bgp.bgp_ipv4route {
 				    set UpDevice [ lindex [split $name "."] 1 ]
@@ -1323,6 +1364,7 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -start_ip "192.0.1.0" -prefix_len 24
+					$UpDevice set_route -route_block $lastName
 				}
 				device.bgp.bgp_ipv6route {
 				    set UpDevice [ lindex [split $name "."] 1 ]
@@ -1331,6 +1373,7 @@ namespace eval IxiaFH {
 				    RouteBlock $lastName 
 					$lastName SetUpDevice $UpDevice
 					$lastName config -start_ip "2000::1" -prefix_len 64
+					$UpDevice set_route -route_block $lastName
 				}
 				device.dhcpv4_client {
 				    Dhcpv4Host $lastName $portn
@@ -1408,11 +1451,12 @@ namespace eval IxiaFH {
 				}
 				device.mld_querier {
 				    set mldInt     [ $hostName cget -handle    ]										
-				    MldQuerier $lastName $portn "null" $mldInt
-					
-					
+				    MldQuerier $lastName $portn "null" $mldInt	
 				}
-            }
+ 				default {
+					error "$errNumber(3) key:$key value:$value"
+				}	           
+			}
 			if { $flag } {
 			    device_config  $arg
 			}		
@@ -1431,6 +1475,7 @@ namespace eval IxiaFH {
 		set tag "device_config "
 		Logto -info "----- TAG: $tag -----"
         global errNumber
+		global loadflag
         set len [llength $args]
 		puts $len
 		set arg [lindex $args 0]
@@ -1457,11 +1502,14 @@ namespace eval IxiaFH {
 					-args_value {
 					    set args_value_pairs $value
                         puts "args_value_pairs:$args_value_pairs"
-				    }					
+				    }
+					-obj_name {
+						set obj_name $value    
+					}
 			    }
 		    }
 		
-			if { $args_value_pairs != "" && $name != "" } {
+			if { $args_value_pairs != "" && $loadflag == 0 } {
 				foreach { key value } $args_value_pairs {
 					set key [string tolower $key]
 				}
@@ -1481,7 +1529,7 @@ namespace eval IxiaFH {
 						set UpDevice [ $dname cget -up_device ]
 						puts "UpDevice:$UpDevice"
 						set origin sameArea
-						$UpDevice set_route -route_block $dname -origin $origin					
+						$UpDevice set_route -route_block $dname -origin $origin				
 					}
 					externalsa -
 					device.ospfv2.externalsa {
@@ -1555,100 +1603,153 @@ namespace eval IxiaFH {
 					device.mld_querier {
 						eval $dname config $args_value_pairs
 					}
+					default {
+						error "$errNumber(3) key:$key value:$value"
+					}					
 				}
-			} else {
+			} elseif  { $loadflag } {
+				set devicelist   [ split $obj_name  _ ]
+				set portname     [ lindex $devicelist 0 ]
+				set protocoltype [ lindex $devicelist 1 ]
+				set EPType { dhcp pppoe igmp dhcpserver bgp isis ospf}
+				set protocoltype [string tolower $obj_type]
+				foreach ptype $EPType {
+					if { [regexp ^$ptype.* $protocoltype] } {               
+						set protocoltype $ptype
+						Logto -info "protocol type $ptype"
+						break
+					}
 					
-				set dname [::IxiaFH::nstype $name]
-				set obj_type [ string tolower $obj_type]
-				switch -exact -- $obj_type {
-					device {
-						eval $dname config $arg						
-					}
-					ospfv2 -
-					device.ospfv2 {						
-						eval $dname config $arg
-					}
-					netsummarylsa -
-					device.ospfv2.netsummarylsa {
-						eval $dname config $arg
-						set UpDevice [ $dname cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						set origin sameArea
-						$UpDevice set_route -route_block $dname -origin $origin					
-					}
-					externalsa -
-					device.ospfv2.externalsa {
-						eval $dname config $arg
-						set UpDevice [ $dname cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						set origin externalType1
-						#set origin externalType2
-						$UpDevice set_route -route_block $dname -origin $origin
-					}
-					isis -
-					device.isis {
-						eval $dname config $arg
-					}
-					isis_ipv4route -
-					device.isis.isis_ipv4route -
-					isis_ipv6route -
-					device.isis.isis_ipv6route {
-						eval $dname config $arg
-						set UpDevice [ $dname cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						$UpDevice set_route -route_block $dname   
-					}
-					bgp -
-					device.bgp {				 
-						eval $dname config  $arg 
-					}
-					bgp_ipv4route -
-					device.bgp.bgp_ipv4route -
-					bgp_ipv6route -
-					device.bgp.bgp_ipv6route {
-						eval $dname config $arg
-						set UpDevice [ $dname cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						$UpDevice set_route -route_block $dname
-					}
-					dhcpv4_client -
-					device.dhcpv4_client -
-					dhcpv4_server -
-					device.dhcpv4_server -
-					dhcpv4_relay_agent -
-					device.dhcpv4_relay_agent {
-						eval $dname config $arg
-					}
-					pppoe_client -
-					device.pppoe_client -
-					pppoe_server -
-					device.pppoe_server {
-						eval $dname config $arg
-						
-					}
-					igmp -
-					device.igmp {
-						eval ${dname}_group config $arg
-						set UpDevice [ ${dname}_group cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						$UpDevice join_group -group ${dname}_group
-					}
-					igmp_querier -
-					device.igmp_querier {
-						eval $dname config $arg
-					}
-					mld -
-					device.mld {
-						eval ${dname}_group config $arg
-						set UpDevice [ ${dname}_group cget -up_device ]
-						puts "UpDevice:$UpDevice"
-						$UpDevice join_group -group ${dname}_group
-					}
-					mld_querier -
-					device.mld_querier {
-						eval $dname config $arg
-					}
 				}
+				if { $protocoltype == "bgp" || $protocoltype == "isis" || $protocoltype == "ospf" ||$protocoltype == "igmp"} {
+					protocol_handle  -device $device -protocoltype $protocoltype
+				} else {
+				
+					access_protocol_handle -port $portname -device $obj_name -protocoltype $protocoltype 
+				}
+				foreach { key value } $args_value_pairs {
+					set key [string tolower $key]
+					switch -exact -- $key {
+						-src_mac {
+							$obj_name config -mac_addr $value
+								
+						}
+						-dst_mac {					                       
+						}
+						-vlan {
+							$obj_name config -vlan_id1 $value                        
+						}
+						-src_ip {
+							if {$protocoltype == "igmp" } {
+								$obj_name config -ipaddr $value
+							}                    
+						}
+						-gateway_ip {
+													
+						}
+						-ospf_area_id {
+							$obj_name config  -area_id $value
+								
+						}
+						-ospf_network_type {
+							$obj_name config  -network_type $value
+								
+						}
+						-isis_system_id {
+							$obj_name config  -system_id $value
+								
+						}
+						-isis_level {
+							if { $value == 0 } {
+								set value "level2"
+							} elseif { $value == 1 } {
+								set value "level1"
+							} elseif { $value == 2 } {
+								set value "level1Level2"
+							}
+							$obj_name config  -level_type $value
+								
+						}
+						-isis_network_type {
+							$obj_name config  -network_type $value
+								
+						}
+						-isis_metric_mode {
+							$obj_name config  -metric $value
+								
+						}
+						-bgp_mode {
+							if { $value == 0 } {
+								set value "external"
+							} elseif { $value == 1 } {
+								set value "internal"
+							}
+							$obj_name config  -type $value
+								
+						}
+						-bgp_dut_as {
+							$obj_name config  -dut_as $value
+								
+						}
+						-bgp_local_as {
+							$obj_name config  -as $value
+								
+						}
+						-dhcp_pool_address_start {
+							$obj_name config  -pool_ip_start $value
+								
+						}
+						-dhcp_pool_host_address_start {
+							$obj_name config  -pool_ip_pfx $value
+								
+						}
+						-dhcp_pool_address_count {
+							$obj_name config  -pool_ip_count $value
+								
+						}
+						-dhcp_enable_broadcast_flag {
+							$obj_name config  -use_broadcast_flag $value
+								
+						}
+						-pppoe_auth {
+							$obj_name config  -authentication $value
+								
+						}
+						-pppoe_usename {
+							$obj_name config  -user_name $value
+								
+						}
+						-pppoe_password {
+							$obj_name config  -password $value
+								
+						}
+						-multicast_version {
+							$obj_name config  -version $value
+								
+						}
+						-igmp_start_group_ip {
+							$obj_name config  -ipaddr $value
+								
+						} 
+						-igmp_group_step {
+							$obj_name config  -ipaddr_step $value
+								
+						}
+						-igmp_group_num {
+							$obj_name config  -count $value
+								
+						} 
+						-pim_mode {
+							$obj_name config  -pim_mode $value
+								
+						}
+						-pim_role {
+							$obj_name config  -pim_role $value
+								
+						}                
+					}
+				}		   
+
 			}
 			
 			
@@ -1705,8 +1806,16 @@ namespace eval IxiaFH {
 						TcpHdr ${streamobj}tcpH${headindex}
 						#${streamobj}tcpH${headindex} ChangeType MOD
 						set tname [::IxiaFH::nstype $streamobj] 
-						set highLevelStream [ $tname cget -handle ]
-						puts "highLevelStream:$highLevelStream"
+						if { [ $tname isa Flow ] } {
+							set highLevelStream [ $tname cget -handle ]
+							puts "highLevelStream:$highLevelStream"
+						} elseif { [ $tname isa Traffic ] } {
+							set traffichandle [ $tname cget -handle ] 
+							set highLevelStream [ ixNet getL $traffichandle highLevelStream ] 
+							if { $highLevelStream == ""} {
+								set highLevelStream [ ixNet add $traffichandle highLevelStream ] 
+							} 
+						}
 						foreach pro [ ixNet getList $highLevelStream stack ] {
 		Deputs "pro:$pro"
 							if { [ regexp -nocase IPv4 $pro ] } {
@@ -2220,14 +2329,13 @@ namespace eval IxiaFH {
         global errNumber
         global fhportlist
 		global loadflag
+		global deviceList
+		global hostlist
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
 				-device {
 					set device_list $value
-				}
-				default {
-					error "$errNumber(3) key:$key value:$value"
 				}
 			}
 		}
@@ -2386,17 +2494,50 @@ namespace eval IxiaFH {
 				after 5000
 			}
 		} else {
-			
-			set device_list [ ::IxiaFH::nstype $device_list ]
-			set dhandle [ $device_list cget -protocolhandle ]
-			if { [ $device_list isa Host ] } {
-				Tester::start_router 
+			if { [ info exists device_list ] } {
+				if { $device_list=="device*" } {
+					foreach prolist $deviceList {
+						set lsahandle [ $prolist cget -handle ]
+						ixNet setA $lsahandle -enabled true
+						ixNet commit
+					}
+					Tester::start_router 
+				} else {
+					foreach devicelist $device_list {
+						set devicelist [ ::IxiaFH::nstype $devicelist ]
+						if { [ $devicelist isa Host ] } {
+							set session [ $devicelist cget -Session ]
+							set sessionhandle [ $session cget -handle ]
+							set dhandle [ $session cget -protocolhandle ]
+							ixNet setA $sessionhandle -enabled true
+							ixNet commit
+							set prostate [ ixNet getA $dhandle -runningState ]
+							if { $prostate == "stopped" } {
+								Logto -info "router start $dhandle"
+								ixNet exec start $dhandle	
+							}
+							
+						} else {
+							set dhandle [ $devicelist cget -protocolhandle ]
+							set sessionhandle [ $devicelist cget -handle ]
+							ixNet setA $sessionhandle -enabled true
+							ixNet commit
+							set prostate [ ixNet getA $dhandle -runningState ]
+								if { $prostate == "stopped" } {
+									Logto -info "router start $dhandle"
+									ixNet exec start $dhandle	
+								}
+						}
+					}	
+				}
 			} else {
-				set prostate [ ixNet getA $dhandle -runningState ]
-					if { $prostate == "stopped" } {
-						Logto -info "router start $dhandle"
-						ixNet exec start $dhandle	
-			        }
+				foreach prolist $deviceList {
+					set lsa [ $prolist cget -protocolhandle ]
+					set lsahandle [ $prolist cget -handle ]
+					ixNet setA $lsahandle -enabled true
+					ixNet commit
+				}
+				Tester::start_router 
 			}
 		}
 		
@@ -2412,14 +2553,12 @@ namespace eval IxiaFH {
         global errNumber
         global fhportlist
 		global loadflag
+		global deviceList
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
 				-device {
 					set device_list $value
-				}
-				default {
-					error "$errNumber(3) key:$key value:$value"
 				}
 			}
 		}
@@ -2601,15 +2740,56 @@ namespace eval IxiaFH {
 				Tester::stop_router
 			}
 		} else {
-			set device_list [ ::IxiaFH::nstype $device_list ]
-			set dhandle [ $device_list cget -protocolhandle ]
-			if { [ $device_list isa Host ] } {
-				Tester::stop_router 
+			if { [ info exists device_list ] } {
+				if { $device_list == "device*" } {
+					foreach prolist $deviceList {
+						set lsahandle [ $prolist cget -handle ]
+						ixNet setA $lsahandle -enabled false
+						ixNet commit
+					}
+					Tester::stop_router 
+				} else {
+					foreach devicelist $device_list {
+						set devicelist [ ::IxiaFH::nstype $devicelist ]
+						if { [ $devicelist isa Host ] } {
+							set session [ $devicelist cget -Session ]
+							set sessionhandle [ $session cget -handle]
+							set dhandle [ $session cget -protocolhandle ]
+							set prostate [ ixNet getA $dhandle -runningState ]
+							Logto -info "router stop $dhandle"
+							ixNet exec stop $dhandle
+							ixNet setA $sessionhandle -enabled false
+							ixNet commit
+							
+						} else {
+							set dhandle [ $devicelist cget -protocolhandle ]
+							set sessionhandle [ $devicelist cget -handle ]
+							set prostate [ ixNet getA $dhandle -runningState ]
+							Logto -info "router stop $dhandle"
+							ixNet exec stop $dhandle
+							ixNet setA $sessionhandle -enabled false	
+							ixNet commit
+						}
+					}  
+			    }
 			} else {
-				set prostate [ ixNet getA $dhandle -runningState ]
-				Logto -info "router stop $dhandle"
-				ixNet exec stop $dhandle	
-			}
+				foreach prolist $deviceList {
+					set lsa [ $prolist cget -protocolhandle ]
+					set lsahandle [ $prolist cget -handle ]
+					ixNet setA $lsahandle -enabled false
+					ixNet commit
+				}
+				Tester::stop_router 
+			}		
+			# set device_list [ ::IxiaFH::nstype $device_list ]
+			# set dhandle [ $device_list cget -protocolhandle ]
+			# if { [ $device_list isa Host ] } {
+				# Tester::stop_router 
+			# } else {
+				# set prostate [ ixNet getA $dhandle -runningState ]
+				# Logto -info "router stop $dhandle"
+				# ixNet exec stop $dhandle	
+			# }
 		}
 		
 	}
@@ -4673,6 +4853,28 @@ namespace eval IxiaFH {
         protocol_handle  -device $device -protocoltype bgp
         $device withdraw_topo	
         
+	}
+	proc file_save { args } {
+		foreach { key value } $args {
+			set key [string tolower $key]
+			switch -exact -- $key {
+				-name {
+					set name $value
+				}
+				-file_path {
+					set file_path $value
+				}
+				-defalut {
+					error "$errNumber(3) key:$key value:$value"
+				}
+			}
+		}
+		if { [ file exist $file_path ] } {
+		} else {
+			file mkdir $file_path
+		}
+		set logfile "$file_path/$name.ixncfg"
+		ixNet exec saveConfig [ixNet writeTo $logfile - ixNetRelative -overwrite] 
 	}
 }
 
