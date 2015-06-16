@@ -117,6 +117,7 @@ namespace eval IxiaFH {
 	}
 
 	proc instrument_info_load {args} {
+       Login
 	}
 
 	proc instrument_config_init {args} {
@@ -614,10 +615,12 @@ namespace eval IxiaFH {
 				
 					
 			}
-            foreach item $txItemList { 
-            puts $item			
-                ixNet exec generate $item
-            }
+            # foreach item $txItemList { 
+            # puts $item			
+                # ixNet exec generate $item
+            # }
+            
+            ixNet exec generate $txItemList
 			
 			if { $regenerate } { 
 			    set rgname ""
@@ -803,6 +806,7 @@ namespace eval IxiaFH {
 		global trafficnamelist
         global errNumber
 		
+        set type "all"
 		foreach { key value } $args {
 			set key [string tolower $key]
 			switch -exact -- $key {
@@ -813,6 +817,9 @@ namespace eval IxiaFH {
 				-filter {
 					set filter $value
 				} 
+                -type {
+					set type $value
+				}
 				default {
 					error "$errNumber(3) key:$key value:$value"
 				}
@@ -914,7 +921,7 @@ namespace eval IxiaFH {
 		if {$counter == "S:*.*"} {
 			set result {}
 			set flag 0
-            set tempreslist [Tester::getAllStats]
+            set tempreslist [Tester::getAllStats  $type]
 			#Deputs "tempreslist:$tempreslist"
 			foreach tempres $tempreslist {
 				Deputs "tempres:$tempres"
@@ -1127,13 +1134,8 @@ namespace eval IxiaFH {
 					set fhandle [$tname cget -handle]
 					lappend trafficinfo [list $thandle $portn $rxportlist ]
 					lappend flownamelist $tname
-					lappend flowlist $fhandle 
-					EtherHdr ${name}EtherH${headindex} 
-					Ipv4Hdr ${name}ipv4H${headindex}
-					${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
-					${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					
-					# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-					# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+					lappend flowlist $fhandle 				
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 -srcip 192.85.1.2  -dstip 192.0.0.1 
 				  } else {
 				   
 				    set thandle ""
@@ -1153,13 +1155,8 @@ namespace eval IxiaFH {
 					   set fhandle [$tname cget -handle]
 					   lappend trafficinfo [list $thandle $portn $rxportlist ] 
 					   lappend flownamelist $tname
-					   lappend flowlist $fhandle 
-						EtherHdr ${name}EtherH${headindex} 
-						Ipv4Hdr ${name}ipv4H${headindex}
-						${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
-						${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					   
-					    # traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 						
-						# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1
+					   lappend flowlist $fhandle 			   
+					   traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 -srcip 192.85.1.2  -dstip 192.0.0.1
 					} else {
 				       puts "trafficinfo get thandle :$thandle"
 					   Flow $tname $portn "NULL" $thandle 
@@ -1168,13 +1165,8 @@ namespace eval IxiaFH {
 					   puts "fhandle:$fhandle"
 					   lappend flownamelist $tname
 					   lappend flowlist $fhandle
-					   puts $name
-						EtherHdr ${name}EtherH${headindex} 
-						Ipv4Hdr ${name}ipv4H${headindex}
-						${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
-						${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1					   
-						# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-						# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+					   puts $name				   
+					   traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 				  }
 				
@@ -1192,12 +1184,7 @@ namespace eval IxiaFH {
 					lappend flownamelist [ixNet getA $fhandle -name]
 					Deputs "fname: $flownamelist"
 					lappend flowlist $fhandle
-					EtherHdr ${name}EtherH${headindex} 
-					Ipv4Hdr ${name}ipv4H${headindex}
-					${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
-					${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1
-					# traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-					# traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+					traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01 -srcip 192.85.1.2  -dstip 192.0.0.1 
 					}
 		   
 				}
@@ -1205,12 +1192,7 @@ namespace eval IxiaFH {
 			    Traffic $tname $portn 
 				lappend trafficnamelist $tname
                 lappend trafficlist [$tname cget -handle]
-				EtherHdr ${name}EtherH${headindex} 
-				Ipv4Hdr ${name}ipv4H${headindex}
-				${name}EtherH${headindex} config -src 00:00:94:00:00:02 -dst 00:00:01:00:00:01 
-				${name}ipv4H${headindex} config -src 192.85.1.2 -dst 192.0.0.1
-				#traffic_config -name $name -srcmac 00:00:94:00:00:02 -dstmac 00:00:01:00:00:01
-				#traffic_config -name $name -srcip 192.85.1.2  -dstip 192.0.0.1 
+				
 			}		
 			 			
 		    after 15000 
@@ -2313,8 +2295,8 @@ namespace eval IxiaFH {
 			   
 			} else {
 				set headlist [::IxiaFH::nstype $headlist]
-				
-				eval $streamobj config -pdu $headlist $cmd
+				set cmd "-pdu $headlist $cmd"
+				eval $streamobj config $cmd
 			}	
 			# set root [ixNet getRoot]
 			# ixNet exec apply $root/traffic

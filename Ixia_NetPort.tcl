@@ -2130,6 +2130,8 @@ Deputs "pfxIncr:$pfxIncr"
 							-macAddress $src_mac 
 					ixNet commit
 					set src_mac [ IncrMacAddr $src_mac $src_mac_step ]
+				} else {
+				   set macAddr [ixNet getA $int/ethernet -macAddress ]
 				}
 	Deputs "config vlan1"
 				if { [ info exists vlan_id1 ] } {

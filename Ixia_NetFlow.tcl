@@ -150,6 +150,8 @@ Deputs "----- TAG: $tag -----"
 			ixNet setA $hTraffic/tracking -trackBy [list flowGroup0 trackingenabled0]
 			ixNet commit
 			Deputs "hTraffic: $hTraffic"
+            ixNet setA $hTraffic -name "${this}_item"
+            ixNet commit
 			set hTraffic [ixNet remapIds $hTraffic ]
 			Deputs "hTraffic: $hTraffic"
 		

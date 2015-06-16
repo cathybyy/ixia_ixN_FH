@@ -265,15 +265,19 @@ Deputs "Args:$args "
 			
 			if { [lsearch $routeBlock(obj) $rb] == -1 } {
 			    set hRouteBlock [ ixNet add $handle routeRange ]
-				ixNet commit
+				ixNet commit				
 				set hRouteBlock [ ixNet remapIds $hRouteBlock ]
+				$rb setHandle $hRouteBlock
+				#binding traffic bug, should change 1 to 1.0
+				#$rb setHandle [regsub {/routeRange:} $hRouteBlock {.0/routerRange:}]
 				set routeBlock($rb,handle) $hRouteBlock
 				lappend routeBlock(obj) $rb
 			} else {
 			    set hRouteBlock $routeBlock($rb,handle)
+				$rb setHandle $hRouteBlock
 			}
 			
-		puts "hRouteBlock: $hRouteBlock"	
+		
 		puts "$num; $type; $start; $prefix_len; $step"
 			ixNet setM $hRouteBlock \
 				-numRoutes $num \
@@ -284,6 +288,8 @@ Deputs "Args:$args "
 				-enabled $active
 			ixNet commit
 		}
+		
+		
 	}
 	
     return [GetStandardReturnHeader]

@@ -399,10 +399,12 @@ Deputs "Args:$args "
 			set hRouteBlock [ ixNet add $handle routeRange ]
 			ixNet commit
 			set hRouteBlock [ ixNet remapIds $hRouteBlock ]
+			$rb setHandle $hRouteBlock
 			set routeBlock($rb,handle) $hRouteBlock
 			lappend routeBlock(obj) $rb
 			} else {
 			    set hRouteBlock $routeBlock($rb,handle)
+				$rb setHandle $hRouteBlock
 			}
 			
 		puts "hRouteBlock: $hRouteBlock"	

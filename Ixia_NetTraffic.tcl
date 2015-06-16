@@ -755,6 +755,17 @@ Deputs "pdu:$pdu"
 		}
 		ixNet commit
 	Deputs StepDone
+    
+        # set hlHandle [lindex [ixNet getL  $handle highLevelStream] end ]
+        # set hlName [ixNet getA $hlHandle -name]
+        # set len [string length $hlName]
+        # for {set index 0 } { $index <$len} {incr index} {
+            # if {[string index $hlName $index] == " " || [string index $hlName $index] =="-"} {
+                # set hlName [string replace $hlName $index $index "_"]
+            # }
+        # }
+        # ixNet setA $hlHandle -name $hlName
+        # ixNet commit
 
 		
 	}	
@@ -801,7 +812,7 @@ Deputs "Traffic type:quick stream IPv6"
 		  ixNet setA $dstIpField -singleValue $dst
 		  ixNet commit            
 	   } else {
-Deputs "objects:[find objects]"
+#Deputs "objects:[find objects]"
 		set srcHandle [ list ]
 		foreach srcEndpoint $src {
 Deputs "src:$srcEndpoint"
@@ -898,6 +909,21 @@ Deputs "ep:$endpointSet"
 		ixNet commit
 Deputs "highLevelStream:$highLevelStream"
 Deputs Step190
+        # set hlHandle [lindex [ixNet getL  $handle highLevelStream] end ]
+		# Deputs "hlHandle: $hlHandle"
+        # set hlName [ixNet getA $hlHandle -name]
+		# Deputs "hlName: $hlName"
+        # set len [string length $hlName]
+        # for {set index 0 } { $index <$len} {incr index} {
+            # if {[string index $hlName $index] == " " || [string index $hlName $index] =="-"} {
+                # set hlName [string replace $hlName $index $index "_"]
+            # }
+        # }
+		# Deputs "hlName: $hlName"
+        # ixNet setA $hlHandle -name $hlName
+        # ixNet commit
+		# ixNet commit
+       
 	   }
 		set flag_modify_adv 1
 	} else {
@@ -1625,6 +1651,16 @@ Deputs Step250
 	Deputs "Step280"			
 				ixNet exec generate $handle
 				ixNet commit
+	set hlHandle [lindex [ixNet getL  $handle highLevelStream] end ]
+	set hlName [ixNet getA $hlHandle -name]
+	set len [string length $hlName]
+	for {set index 0 } { $index <$len} {incr index} {
+		if {[string index $hlName $index] == " " || [string index $hlName $index] =="-"} {
+			set hlName [string replace $hlName $index $index "_"]
+		}
+	}
+	ixNet setA $hlHandle -name $hlName
+	ixNet commit
 
 	
     return [GetStandardReturnHeader]
@@ -1768,6 +1804,18 @@ Deputs StepDone
 		ixNet setA $handle/tracking -trackBy [list flowGroup0 trackingenabled0]
 		ixNet commit
 	}
+    
+    # set hlHandle [lindex [ixNet getL  $handle highLevelStream] end ]
+    # set hlName [ixNet getA $hlHandle -name]
+    # set len [string length $hlName]
+    # for {set index 0 } { $index <$len} {incr index} {
+        # if {[string index $hlName $index] == " " || [string index $hlName $index] =="-"} {
+            # set hlName [string replace $hlName $index $index "_"]
+        # }
+    # }
+    # ixNet setA $hlHandle -name $hlName
+    # ixNet commit
+    
 
 }
 body Traffic::GetField { stack value } {

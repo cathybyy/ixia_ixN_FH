@@ -440,6 +440,7 @@ class RouteBlock {
 	public variable metric_lsa
 	public variable metric_route
 	public variable route_type
+	public variable handle
 	constructor {} {
 		set num 1
 		set step 1
@@ -450,6 +451,10 @@ class RouteBlock {
 	method config { args } {}
 	method SetUpDevice { updevice } {
 	    set up_device $updevice
+	}
+	method setHandle { mhandle } {
+		set handle $mhandle
+		puts "handle:$handle"
 	}
 }
 
