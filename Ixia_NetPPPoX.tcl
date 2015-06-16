@@ -19,7 +19,7 @@ class PppoeHost {
 	public variable hPppox
     
     constructor { port { onStack null } { phandle null } } { chain $port $onStack $phandle  } {}
-	method reborn {} {}
+	method reborn { { onStack null } } {}
 	method config { args } {}
     method get_fh_stats { args } {}
     method start {} {
@@ -79,7 +79,7 @@ Deputs "stack filter:$stackFilter"
     
 }
 
-body PppoeHost::reborn {} {
+body PppoeHost::reborn { { onStack null } } {
     
 	set tag "body PppoeHost::reborn [info script]"
 	Deputs "----- TAG: $tag -----"
@@ -152,6 +152,7 @@ Deputs "Args:$args "
                     error "$errNumber(1) key:$key value:$value"
                 }
 			}
+			-authen_mode -
 			-authentication {
                 set value [ string tolower $value ]
                 if { [ lsearch -exact $EAuth $value ] >= 0 } {
@@ -160,6 +161,9 @@ Deputs "Args:$args "
                 } else {
                     error "$errNumber(1) key:$key value:$value"
                 }
+			}
+			-server_ip {
+			    set server_ip $value
 			}
 			-enable_domain {
                 set trans [ BoolTrans $value ]
@@ -172,11 +176,24 @@ Deputs "Args:$args "
 			-domain {
 				set domain $value
 			}
+			-username -
 			-user_name {
 				set user_name $value
 			}
 			-password {
 				set password $value
+			}
+			-ac_name {
+				set ac_name $value
+			}
+			-pppoe_ipv4_address_start {
+				set ipv4_address_start $value
+			}
+			-pppoe_ipv4_address_count {
+				set ipv4_address_count $value
+			}
+			-pppoe_ipv4_address_step {
+				set ipv4_address_step $value
 			}
         }
     }
@@ -198,7 +215,7 @@ Deputs "Args:$args "
 				set ipcp_encap DualStack
 			}
 		}
-		ixNet setA $handle/pppoxRange -ncpType $ipcp_encap
+		ixNet setA $handle/pppoxRange -incpType $ipcp_encap
 	}
 	
 	if { [ info exists authentication ] } {
@@ -206,6 +223,18 @@ Deputs "Args:$args "
 		switch $authentication {
 			auto {
 				set authentication papOrChap
+				if { [ info exists user_name ] } {
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -chapName $user_name
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -papUser $user_name
+				}
+				if { [ info exists password ] } {
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -chapSecret $password
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -papPassword $password
+				}	
 			}
 			chap_md5 {
 				set authentication chap
@@ -218,6 +247,17 @@ Deputs "Args:$args "
 					 -chapSecret $password
 				}			
 			}
+			pap {
+				set authentication pap
+				if { [ info exists user_name ] } {
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -papUser $user_name
+				}
+				if { [ info exists password ] } {
+					ixNet setMultiAttrs $handle/pppoxRange \
+					 -papPassword $password
+				}			
+			}
 			
 		}
 		ixNet setA $handle/pppoxRange -authType $authentication
@@ -227,7 +267,18 @@ Deputs "Args:$args "
 		
 		ixNet setA $handle/pppoxRange -enableDomainGroups $enable_domain
 	}
-	
+	if { [ info exists server_ip ] } {
+	    ixNet setA $handle/pppoxRange -serverBaseIp $server_ip
+	}
+	if { [ info exists ac_name ] } {
+	    ixNet setA $handle/pppoxRange -acName $ac_name
+	}
+	if { [ info exists ipv4_address_start ] } {
+	    ixNet setA $handle/pppoxRange -clientBaseIp $ipv4_address_start
+	}
+	if { [ info exists ipv4_address_step ] } {
+	    ixNet setA $handle/pppoxRange -clientIpIncr $ipv4_address_step
+	}
 	if { [ info exists domain ] } {
 	
 		foreach domainGroup [ ixNet getL $handle/pppoxRange domainGroup ] {
@@ -677,4 +728,26 @@ Deputs "initStats:$initStats == succStats:$succStats ?"
 	# customProtocolStack((kArray)[(kObjref)=/vport/protocolStack/...],(kArray)[(kString)],(kEnumValue)=kAppend,kMerge,kOverwrite)
 	# disableProtocolStack((kObjref)=/vport/protocolStack/...,(kString))
 	# enableProtocolStack((kObjref)=/vport/protocolStack/...,(kString))
+
+class Pppoev4Server {
+    inherit PppoeHost
+    
+    #public variable type
+	   
+    constructor { port { onStack null } { phandle null } } { chain $port $onStack $phandle  } {}
+	method reborn { { onStack null } } {
+    set tag "body Pppoev4Server::reborn [info script]"
+	Deputs "----- TAG: $tag -----"
+	    chain
+        set optionSet [ixNet getL $hPort/protocolStack "pppoxOptions"]
+        if {$optionSet == "" } {
+            set optionSet [ixNet add ixNet getL $hPort/protocolStack "pppoxOptions"]
+        }
+        ixNet setA $optionSet \
+           -role server
+        ixNet commit
+		config -ipcp_encap "ipv4"
+	
+	}
+}	
 

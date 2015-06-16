@@ -178,10 +178,10 @@ Deputs "----- TAG: $tag -----"
 Deputs "All port obj:[GetAllPortObj]"
 		set strangePort [ CheckStrangePort ]
 Deputs "Strange port:$strangePort"		
-		if { $strangePort == 0 } {
-			global loginInfo
-			Login $loginInfo
-		}
+		# if { $strangePort == 0 } {
+			# global loginInfo
+			# Login $loginInfo
+		# }
 	}
 
 Deputs Step10
@@ -237,14 +237,22 @@ Deputs "hw_id:$hw_id"
 Deputs Step20	
             catch {
                 if { $medium != "NULL" } {
-                    set handle [ Connect $hw_id $medium 1 ]
+                    set handle [ Connect $hw_id $medium 0 ]
                 } else {
-                    set handle [ Connect $hw_id NULL 1]
+                    set handle [ Connect $hw_id NULL 0]
                 }
             }
             set location $hw_id
 Deputs "location:$location" 
-        }
+        } else {
+		Deputs "offline create"
+		    set root [ixNet getRoot]
+			set vport [ixNet add $root vport]
+			ixNet setA $vport -name $this
+			ixNet commit
+			set vport [ixNet remapIds $vport]
+			set handle $vport
+		}
     }
     set intf_mac 	 ""
 	set intf_ipv4	 ""
@@ -306,7 +314,7 @@ Deputs "----- TAG: $tag -----"
 	}
 	set handle [ixNet remapIds $handle]
 Deputs "handle:$handle"	
-	ixNet setA $vport -transmitIgnoreLinkStatus True
+	ixNet setA $handle -transmitIgnoreLinkStatus True
        ixNet commit
  
 	return $handle
@@ -1821,15 +1829,24 @@ Deputs "unitLoad : $unitLoad"
 
 }
 class Host {
+	public variable Session
 	inherit NetObject
 	constructor { port } {}
 	method config { args } {}
 	method enable {} {}
 	method disable {} {}
 	method ping { args } {}
+	method SetSession { session } {
+		set Session $session
+	}
 	
 	public variable hPort
 	public variable portObj
+	public variable ipv4Addr
+	public variable ipv4Step
+	public variable ipv4Count
+	public variable macAddr
+
 }
 
 body Host::constructor { port } {
@@ -1839,7 +1856,11 @@ body Host::constructor { port } {
     } ] } {
     	set port [ GetObject $port ]
     	set hPort [ $port cget -handle ]
-    }	
+    }
+    set handle ""
+    set ipv4Addr ""
+	set ipv4Step 0.1.0.0
+	set ipv4Count 1	
 	
 	
 }
@@ -1851,28 +1872,36 @@ body Host::config { args } {
 Deputs "----- TAG: $tag -----"
 	
 	set count 			1
-	# set src_mac			"00:10:94:00:00:02"
+	#set src_mac			"00:10:94:00:00:01"
 	set src_mac_step	"00:00:00:00:00:01"
-	set vlan_id1_step	1
-	set vlan_id2_step	1
+	set vlan_id1_step	0
+	set vlan_id2_step	0
+	set vlan_pri1       7
+	set vlan_pri2       7
 	set ipv4_addr_step	0.0.0.1
 	set ipv4_prefix_len	24
-	set ipv4_gw			1.1.1.1
-	set ipv6_addr		"3ffe:3210::2"
-	set ipv6_addr_step	::1
-	set ipv6_prefix_len	64
-	set ipv6_gw			3ffe:3210::1
+	set ipv4_gw			192.85.1.1
+	set ipv4_addr       192.85.1.3
+	set ipv4Addr        192.85.1.3
+	# set ipv6_addr		"2000::2"
+	# set ipv6_addr_step	::1
+	# set ipv6_prefix_len	64
+	# set ipv6_gw			2000::1
 	set ip_version		ipv4
 	set enabled 		True
-	
+	set static          0
+	set cvlan_id        100
+	set svlan_id        100
     foreach { key value } $args {
         set key [string tolower $key]
         switch -exact -- $key {
 			-enabled {
 				set  enabled $value
 			}
+			-device_count -
             -count {
 				set count $value
+				set ipv4Count $value
             }
             -src_mac {
 			    if {[IsMacAddress $value]} {
@@ -1880,47 +1909,66 @@ Deputs "----- TAG: $tag -----"
 				} else {
 				    set src_mac [MacTrans $value]
 				}
+				set macAddr $src_mac
             }
             -src_mac_step {
 				set src_mac_step $value
             }
+			-cvlan_id -
             -vlan_id1 -
 			-outer_vlan_id {
 				set vlan_id1 $value
             }
+			-cvlanid_step -
             -vlan_id1_step -
 			-outer_vlan_step {
 				set vlan_id1_step $value
             }
+			-cvlan_pri {
+			    set vlan_pri1 $value
+			}
+			-svlan_id -
             -vlan_id2 -
 			-inner_vlan_id {
 				set vlan_id2 $value
             }
+			-svlanid_step -
             -vlan_id2_step -
 			-inner_vlan_step {
 				set vlan_id2_step $value
             }
+			-svlan_pri {
+			    set vlan_pri2 $value
+			}
+			-ipv4_address -
             -ipv4_addr {
 				set ipv4_addr $value
+				set ipv4Addr  $value
             }
+			-ipv4_address_step -
             -ipv4_addr_step {
 				set ipv4_addr_step $value
+				set ipv4Step $value
             }
 			-ipv4_prefix_len {
 				set ipv4_prefix_len $value
 			}
+			-ipv4_gateway -
 			-ipv4_gw {
 				set ipv4_gw $value
 			}
+			-ipv6_address -
 			-ipv6_addr {
 				set ipv6_addr $value
 			}
+			-ipv6_address_step -
 			-ipv6_addr_step {
 				set ipv6_addr_step $value
 			}
 			-ipv6_prefix_len {
 				set ipv6_prefix_len $value
 			}
+			-ipv6_gateway -
 			-ipv6_gw {
 				set ipv6_gw $value
 			}
@@ -1935,16 +1983,20 @@ Deputs "----- TAG: $tag -----"
 	
 	set pfxIncr 	[ GetStepPrefixlen $ipv4_addr_step ]
 Deputs "pfxIncr:$pfxIncr"	
-	if { [ info exists static] == 0 } {
-		if { [ info exists ipv4_addr ] == 0 } {
-			set static 1
-		} else {
-			set static 0
-		}
-	}
+	# if { [ info exists static] == 0 } {
+		# if { [ info exists ipv4_addr ] == 0 } {
+			# set static 1
+		# } else {
+			# set static 0
+		# }
+	# }
 	
 	if { $static } {
-		set handle [ixNet add $hPort/protocols/static lan]
+	Deputs "static is enabled"
+	    if {$handle == ""} {
+		    set handle [ixNet add $hPort/protocols/static lan]
+		}
+		#set handle [ixNet add $hPort/protocols/static lan]
 		if { $src_mac_step != "00:00:00:00:00:01" || 
 			$vlan_id1_step > 1 || $vlan_id2_step > 1 } {
 			#...
@@ -1984,89 +2036,132 @@ Deputs "pfxIncr:$pfxIncr"
 					ixNet setM $handle \
 						-vlanCount 2 \
 						-vlanId "${vlan_id1},${vlan_id2}"
+						-vlanPriority "${vlan_pri1},${vlan_pri2}"
 				} else {
 					ixNet setM $handle \
 						-vlanCount 1 \
 						-vlanId $vlan_id1
+						-vlanPriority $vlan_pri1
 				}
 			} 
 		}
 		ixNet commit
 	} else {
-		for { set index 0 } { $index < $count } { incr index } {
-			set int [ ixNet add $hPort interface ]
-			# ixNet setA $int -enabled True
-			ixNet commit
-			set int [ixNet remapIds $int]
-			lappend handle $int
-	Deputs "int:$int"	
-			if { [ llength [ ixNet getL $int ipv4 ] ] == 0 } {
-				ixNet add $int ipv4
-				ixNet commit
+	    if {[ info exists ipv4_addr ] && [ IsSameNetwork $ipv4_addr $ipv4_gw $ipv4_prefix_len ] == 0 } {
+		Deputs "ipv4 and gateway is not in same network"
+		    
+		    set intList [ ixNet getL $hPort interface ]
+			set conInt ""
+			foreach tint $intList {
+			   set ipv4Int [ixNet getL $tint ipv4]
+			   set tgw [ ixNet getA $ipv4Int -gateway ]
+			   if { $tgw == $ipv4_gw } {
+			       set conInt $tint
+			       break
+			   }
 			}
-			ixNet setM $int/ipv4 \
-				-ip $ipv4_addr \
-				-gateway $ipv4_gw \
-				-maskWidth $ipv4_prefix_len
-			ixNet commit
-Deputs "Step10"			
-			if { $pfxIncr > 0 } {
-				set ipv4_addr [ IncrementIPAddr $ipv4_addr $pfxIncr ]
-			}
-			if { [ string tolower $ip_version ] != "ipv4" } {
-			
-				if { [ llength [ ixNet getL $int ipv6 ] ] == 0 } {
-					ixNet add $int ipv6
-					ixNet commit
+			if {$conInt != ""} {
+			    if {$handle == ""} {
+			        set handle [ixNet add $hPort/protocols/static "ip"]
 				}
-	Deputs "IPv6 Addr: $ipv6_addr "
-	Deputs "int/ipv6: [ ixNet getL $int ipv6 ]"
-				ixNet setM [ ixNet getL $int ipv6 ] \
-					-ip $ipv6_addr \
-					-gateway $ipv6_gw \
-					-prefixLength $ipv6_prefix_len
+				ixNet setMultiAttribute $handle \
+					-enabled true \
+					-ipStart $ipv4_addr \
+					-protocolInterface $conInt
 				ixNet commit
-				set ipv6_addr [ IncrementIPv6Addr $ipv6_addr 64 ]
-	Deputs "ipv6 addr incr: $ipv6_addr"			
-			}
-Deputs "config mac"
-			if { [ info exists src_mac ] } {
-				ixNet setM $int/ethernet \
-						-macAddress $src_mac 
-				ixNet commit
-				set src_mac [ IncrMacAddr $src_mac $src_mac_step ]
-			}
-Deputs "config vlan1"
-			if { [ info exists vlan_id1 ] } {
-				set vlanId	$vlan_id1
+				set handle [ ixNet remapIds $handle ]
+			    
+			} else {
+			    error "No connect device for gateway $ipv4_gw"
+			}				
+		
+		} else {
+		    Deputs "add interface"
+			Deputs "count: $count"
+			for { set index 0 } { $index < $count } { incr index } {
+			    Deputs "handle: $handle"
+			    if { $handle == "" } {
+				Deputs "hPort:$hPort"
+					set int [ ixNet add $hPort interface ]
+					# ixNet setA $int -enabled True
+					ixNet commit
+					set int [ixNet remapIds $int]
+					Deputs "int:$int"
+					ixNet setA $int -description $this
+					ixNet commit
+					set handle $int
+				}
+				set int $handle
+		Deputs "int:$int"	
+				if { [ info exists ipv4_addr ] } {
+					if { [ llength [ ixNet getL $int ipv4 ] ] == 0 } {
+						ixNet add $int ipv4
+						ixNet commit
+					}
+					ixNet setM $int/ipv4 \
+						-ip $ipv4_addr \
+						-gateway $ipv4_gw \
+						-maskWidth $ipv4_prefix_len
+					ixNet commit
+		Deputs "Step10"			
+					if { $pfxIncr > 0 } {
+						set ipv4_addr [ IncrementIPAddr $ipv4_addr $pfxIncr ]
+					}
+				}
+				if {[ info exists ipv6_addr ] } {
 				
-				ixNet setM $int/vlan \
-					-count 1 \
-					-vlanEnable True \
-					-vlanId $vlanId
-				ixNet commit
-				incr vlan_id1 $vlan_id1_step
-			}
-			
-Deputs "config vlan2"
-			if { [ info exists vlan_id2 ] } {
-				set vlanId	$vlan_id2
+					if { [ llength [ ixNet getL $int ipv6 ] ] == 0 } {
+						ixNet add $int ipv6
+						ixNet commit
+					}
+		Deputs "IPv6 Addr: $ipv6_addr "
+		Deputs "int/ipv6: [ ixNet getL $int ipv6 ]"
+					ixNet setM [ ixNet getL $int ipv6 ] \
+						-ip $ipv6_addr \
+						-gateway $ipv6_gw \
+						-prefixLength $ipv6_prefix_len
+					ixNet commit
+					set ipv6_addr [ IncrementIPv6Addr $ipv6_addr 64 ]
+		Deputs "ipv6 addr incr: $ipv6_addr"			
+				}
+	Deputs "config mac"
+				if { [ info exists src_mac ] } {
+					ixNet setM $int/ethernet \
+							-macAddress $src_mac 
+					ixNet commit
+					set src_mac [ IncrMacAddr $src_mac $src_mac_step ]
+				}
+	Deputs "config vlan1"
+				if { [ info exists vlan_id1 ] } {
+					set vlanId	$vlan_id1
+					
+					ixNet setM $int/vlan \
+						-count 1 \
+						-vlanEnable True \
+						-vlanId $vlanId
+					ixNet commit
+					incr vlan_id1 $vlan_id1_step
+				}
+				
+	Deputs "config vlan2"
+				if { [ info exists vlan_id2 ] } {
+					set vlanId	$vlan_id2
 
-				set vlanId1	[ ixNet getA $int/vlan -vlanId ]
-				set vlanId	"${vlanId1},${vlanId}"
-			
-				ixNet setM $int/vlan \
-					-count 2 \
-					-vlanEnable True \
-					-vlanId $vlanId
-				ixNet commit
-				incr vlan_id2 $vlan_id2_step
-			}
-			
-Deputs "enable interface"
-			if { [ info exists enabled ] } {
-				ixNet setA $int -enabled $enabled
-				ixNet commit			
+					set vlanId1	[ ixNet getA $int/vlan -vlanId ]
+					set vlanId	"${vlanId1},${vlanId}"
+				
+					ixNet setM $int/vlan \
+						-count 2 \
+						-vlanEnable True \
+						-vlanId $vlanId
+					ixNet commit
+					incr vlan_id2 $vlan_id2_step
+				}
+	Deputs "enable interface"
+				if { [ info exists enabled ] } {
+					ixNet setA $int -enabled $enabled
+					ixNet commit			
+				}
 			}
 		}
 		
